@@ -1,4 +1,4 @@
-import { amountBreakdown, computeAmount, formatRupiah } from "@/lib/promo";
+import { amountBreakdown, formatRupiah, priceSummary } from "@/lib/promo";
 import { whatsappTargets } from "@/lib/template";
 import type { Session, Submission } from "@/lib/types";
 import { CopyText } from "./copy-text";
@@ -7,7 +7,9 @@ import { WhatsappButton } from "./whatsapp-button";
 /** Kartu pembayaran: total, rekening (bisa disalin) & tombol konfirmasi WhatsApp. */
 export function PaymentCard({ session, submission }: { session: Session; submission: Submission }) {
   const promo = session.promo ?? {};
-  const amount = submission.amount ?? computeAmount(promo, submission.guest_count);
+  const summary = priceSummary(promo, submission.guest_count);
+  const amount = submission.amount ?? summary?.total ?? null;
+  const normal = summary && summary.normal > amount! ? summary.normal : null;
   const hasBank = Boolean(promo.bank_account);
   const targets = whatsappTargets(session, submission);
   if (amount === null && !hasBank && targets.length === 0) return null;
@@ -17,7 +19,10 @@ export function PaymentCard({ session, submission }: { session: Session; submiss
       <p className="text-xs font-bold uppercase tracking-wider text-sun-700">Pembayaran</p>
       {amount !== null && (
         <div className="mt-2">
-          <p className="text-3xl font-extrabold tracking-tight text-ink">{formatRupiah(amount)}</p>
+          <p className="flex flex-wrap items-baseline gap-2">
+            {normal && <span className="text-lg font-semibold text-muted-foreground line-through">{formatRupiah(normal)}</span>}
+            <span className="text-3xl font-extrabold tracking-tight text-ink">{formatRupiah(amount)}</span>
+          </p>
           <p className="text-sm text-muted-foreground">{amountBreakdown(promo, submission.guest_count)}</p>
         </div>
       )}

@@ -49,7 +49,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
   const gf = guestField(session.fields);
   const files = fileFields(session.fields);
   const hasPayment = session.track_payment || files.length > 0;
-  const hasAmount = Boolean(session.promo?.fee || session.promo?.guest_fee);
+  const hasAmount = Boolean(session.promo?.fee);
 
   const db = createAdminClient();
   let query = db.from("submissions").select("*").eq("session_id", id).order("created_at", { ascending: true });

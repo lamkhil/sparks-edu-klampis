@@ -3,6 +3,7 @@
 import { createContext, useActionState, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { guestSubFields, type FieldErrors, type FormField, type Guest } from "@/lib/form-schema";
 import type { SlotUsage } from "@/lib/types";
+import { priceSummary, type Promo } from "@/lib/promo";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { Alert, Button, Input, Label, Select, Textarea, cn } from "./kit";
 
@@ -327,7 +328,7 @@ export function DynamicForm({
   slotUsage?: SlotUsage;
   upload?: UploadAction;
   /** Harga per pendaftar & per teman untuk menampilkan total langsung. */
-  pricing?: { fee: number; guestFee: number } | null;
+  pricing?: Promo | null;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const values = state?.values ?? initialValues ?? {};
@@ -353,18 +354,24 @@ export function DynamicForm({
             <FieldBlock key={f.id} field={f} value={values[f.key]} error={state?.errors?.[f.key]} disabled={lockedKeys.includes(f.key)} />
           ))}
         </div>
-        {pricing && (
-          <div className="flex flex-wrap items-end justify-between gap-2 rounded-2xl bg-sun-50 p-4 ring-1 ring-sun-200">
-            <div className="text-sm text-muted-foreground">
-              <p className="font-semibold text-ink">Total pembayaran</p>
-              <p>
-                1 pendaftar × {rupiah(pricing.fee)}
-                {guests > 0 && ` + ${guests} teman × ${rupiah(pricing.guestFee)}`}
+        {(() => {
+          const sum = pricing ? priceSummary(pricing, guests) : null;
+          if (!sum) return null;
+          return (
+            <div className="flex flex-wrap items-end justify-between gap-2 rounded-2xl bg-sun-50 p-4 ring-1 ring-sun-200">
+              <div className="text-sm text-muted-foreground">
+                <p className="font-semibold text-ink">Total pembayaran</p>
+                <p>
+                  {sum.people} {sum.unit} × {rupiah(sum.per)}
+                </p>
+              </div>
+              <p className="flex items-baseline gap-2">
+                {sum.normal > sum.total && <span className="text-base font-semibold text-muted-foreground line-through">{rupiah(sum.normal)}</span>}
+                <span className="text-2xl font-extrabold text-ink">{rupiah(sum.total)}</span>
               </p>
             </div>
-            <p className="text-2xl font-extrabold text-ink">{rupiah(pricing.fee + guests * pricing.guestFee)}</p>
-          </div>
-        )}
+          );
+        })()}
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <Button type="submit" disabled={pending || uploading > 0}>
             {pending ? "Memproses…" : uploading > 0 ? "Menunggu upload…" : submitLabel}

@@ -190,7 +190,7 @@ export default async function FormPage({ params }: PageProps<"/s/[slug]">) {
                   action={submitForm.bind(null, slug)}
                   upload={createProofUpload.bind(null, slug)}
                   slotUsage={usage}
-                  pricing={promo.fee || promo.guest_fee ? { fee: promo.fee ?? 0, guestFee: promo.guest_fee ?? promo.fee ?? 0 } : null}
+                  pricing={promo.fee ? { fee: promo.fee, group_prices: promo.group_prices, price_unit: promo.price_unit } : null}
                   submitLabel="Kirim pendaftaran"
                 />
               ) : (

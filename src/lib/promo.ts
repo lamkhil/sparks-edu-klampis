@@ -10,10 +10,13 @@ export const promoSchema = z.object({
   location_name: z.string().max(120).optional(),
   location_address: z.string().max(300).optional(),
   maps_url: z.string().url().or(z.literal("")).optional(),
-  /** Harga per pendaftar (Rupiah) — dipakai menghitung total. */
+  /** Harga per orang (Rupiah) — dipakai menghitung total. */
   fee: z.coerce.number().int().min(0).max(100_000_000).optional(),
-  /** Harga per teman yang diajak (Rupiah). Kosong = sama dengan harga pendaftar. */
-  guest_fee: z.coerce.number().int().min(0).max(100_000_000).optional(),
+  /** Harga rombongan: mulai `people` orang (pendaftar + teman), harga per orang menjadi `fee`. */
+  group_prices: z
+    .array(z.object({ people: z.coerce.number().int().min(2).max(50), fee: z.coerce.number().int().min(0).max(100_000_000) }))
+    .max(10)
+    .optional(),
   /** Teks harga di label bintang (kosong = otomatis dari harga, mis. "75K"). */
   price: z.string().max(30).optional(),
   /** Kata kecil di atas harga pada label bintang, mis. "hanya". */
@@ -80,19 +83,37 @@ export function priceLabel(p: Promo) {
   return p.price?.trim() || (p.fee ? shortPrice(p.fee) : "");
 }
 
-/** Hitung total bayar: harga pendaftar + jumlah teman × harga teman. Null jika sesi tidak berbayar. */
-export function computeAmount(p: Promo, guests: number) {
-  if (!p.fee && !p.guest_fee) return null;
-  const fee = p.fee ?? 0;
-  const guestFee = p.guest_fee ?? fee;
-  return fee + Math.max(0, guests) * guestFee;
+/** Harga per orang untuk jumlah peserta tertentu (tingkat rombongan terbesar yang terpenuhi). */
+export function feePerPerson(p: Promo, people: number) {
+  const tier = (p.group_prices ?? []).filter((t) => people >= t.people).sort((a, b) => b.people - a.people)[0];
+  return tier ? tier.fee : (p.fee ?? 0);
 }
 
-/** "1 pendaftar × Rp 75.000 + 1 teman × Rp 60.000" */
+/** Total bayar = jumlah orang (pendaftar + teman) × harga per orang. Null jika sesi tidak berbayar. */
+export function computeAmount(p: Promo, guests: number) {
+  if (!p.fee) return null;
+  const people = 1 + Math.max(0, guests);
+  return people * feePerPerson(p, people);
+}
+
+/** Nama satuan peserta dari "Satuan" harga, mis. "/anak" → "anak". */
+export function unitName(p: Promo) {
+  return (p.price_unit ?? "").replace(/^[\s/]+/, "").trim() || "peserta";
+}
+
+/** Harga normal (tanpa harga rombongan), total, & harga per orang. */
+export function priceSummary(p: Promo, guests: number) {
+  const total = computeAmount(p, guests);
+  if (total === null) return null;
+  const people = 1 + Math.max(0, guests);
+  const per = feePerPerson(p, people);
+  const normal = people * (p.fee ?? 0);
+  return { total, normal, per, people, saving: Math.max(0, normal - total), unit: unitName(p) };
+}
+
+/** "2 anak × Rp 70.000" */
 export function amountBreakdown(p: Promo, guests: number) {
-  const fee = p.fee ?? 0;
-  const guestFee = p.guest_fee ?? fee;
-  const parts = [`1 pendaftar × ${formatRupiah(fee)}`];
-  if (guests > 0) parts.push(`${guests} teman × ${formatRupiah(guestFee)}`);
-  return parts.join(" + ");
+  const s = priceSummary(p, guests);
+  if (!s) return "";
+  return `${s.people} ${s.unit} × ${formatRupiah(s.per)}`;
 }

@@ -12,6 +12,8 @@ export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string;
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof Promo>(k: K, v: Promo[K]) => onChange({ ...promo, [k]: v });
+  const setTier = (i: number, patch: Partial<{ people: number; fee: number }>) =>
+    set("group_prices", (promo.group_prices ?? []).map((t, j) => (j === i ? { ...t, ...patch } : t)));
 
   const upload = async (file: File) => {
     setError(null);
@@ -95,21 +97,34 @@ export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string;
           <Input value={promo.location_address ?? ""} placeholder="Galaxy Mall 2, Lt.1, Surabaya" onChange={(e) => set("location_address", e.target.value)} />
         </div>
 
-        <Section title="Harga & pembayaran" hint="Total bayar dihitung otomatis: harga pendaftar + (jumlah teman × harga teman). Tampil di form, halaman penutup, admin & export.">
+        <Section title="Harga & pembayaran" hint="Total dihitung otomatis: jumlah orang (pendaftar + teman) × harga per orang. Tampil di form, halaman penutup, admin & export.">
           <div>
-            <Label>Harga per pendaftar (Rp)</Label>
-            <Input type="number" min={0} value={promo.fee ?? ""} placeholder="75000" onChange={(e) => set("fee", e.target.value === "" ? undefined : Number(e.target.value))} />
+            <Label>Harga per orang (Rp)</Label>
+            <Input type="number" min={0} value={promo.fee ?? ""} placeholder="80000" onChange={(e) => set("fee", e.target.value === "" ? undefined : Number(e.target.value))} />
           </div>
           <div>
-            <Label>Harga per teman (Rp)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={promo.guest_fee ?? ""}
-              placeholder={promo.fee ? String(promo.fee) : "sama dengan harga pendaftar"}
-              onChange={(e) => set("guest_fee", e.target.value === "" ? undefined : Number(e.target.value))}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Isi lebih murah untuk diskon ajak teman.</p>
+            <Label>Harga rombongan (per orang)</Label>
+            <div className="space-y-2">
+              {(promo.group_prices ?? []).map((t, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <span className="whitespace-nowrap">mulai</span>
+                  <Input type="number" min={2} className="w-16" value={t.people} onChange={(e) => setTier(i, { people: Number(e.target.value) })} />
+                  <span className="whitespace-nowrap">orang →</span>
+                  <Input type="number" min={0} value={t.fee} onChange={(e) => setTier(i, { fee: Number(e.target.value) })} />
+                  <button type="button" className="text-[#c20048]" onClick={() => set("group_prices", (promo.group_prices ?? []).filter((_, j) => j !== i))} aria-label="Hapus">
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => set("group_prices", [...(promo.group_prices ?? []), { people: 2, fee: promo.fee ?? 0 }])}
+              >
+                + Tambah harga rombongan
+              </Button>
+              <p className="text-xs text-muted-foreground">Jumlah orang = pendaftar + teman. Mis. mulai 2 orang → 70.000: berdua bayar 140.000 (harga normal 160.000 dicoret).</p>
+            </div>
           </div>
           <div>
             <Label>Bank</Label>
