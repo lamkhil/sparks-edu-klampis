@@ -7,9 +7,7 @@ import { getSubmissionByCode } from "@/lib/data";
 import { formatFieldAnswer, lockedOnEdit } from "@/lib/form-schema";
 import { fmtDate } from "@/lib/format";
 import { canModify } from "@/lib/types";
-import { whatsappLink } from "@/lib/promo";
-import { paymentWhatsappText } from "@/lib/template";
-import { WhatsappButton } from "@/components/whatsapp-button";
+import { PaymentCard } from "@/components/payment-card";
 
 const PAYMENT = {
   pending: ["Menunggu verifikasi pembayaran", "yellow"],
@@ -32,10 +30,7 @@ export default async function SubmissionPage({ params, searchParams }: PageProps
   const active = submission.status === "active";
   const can = canModify(session);
   const editing = edit === "1" && active && can.edit;
-  const wa =
-    active && ["pending", "rejected"].includes(submission.payment_status)
-      ? whatsappLink(session.promo?.whatsapp, paymentWhatsappText(session, submission))
-      : null;
+  const showPayment = active && ["pending", "rejected"].includes(submission.payment_status);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
@@ -53,11 +48,10 @@ export default async function SubmissionPage({ params, searchParams }: PageProps
         </div>
       </Card>
 
-      {wa && (
-        <Card className="mb-6 bg-sun-50">
-          <p className="mb-3 text-sm text-ink">Belum konfirmasi pembayaran? Kirim bukti transfer lewat WhatsApp:</p>
-          <WhatsappButton href={wa} />
-        </Card>
+      {showPayment && (
+        <div className="mb-6">
+          <PaymentCard session={session} submission={submission} />
+        </div>
       )}
 
       <Card>

@@ -2,10 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "./kit";
 
-export function Logo({ className, href = "/" }: { className?: string; href?: string }) {
+export function Logo({ className, href = "/", src, alt }: { className?: string; href?: string; src: string; alt: string }) {
   return (
-    <Link href={href} className={cn("inline-flex items-center", className)} aria-label="Sparks English — beranda">
-      <Image src="/brand/sparks-english-logo.png" alt="Sparks English" width={500} height={100} priority className="h-8 w-auto sm:h-9" />
+    <Link href={href} className={cn("inline-flex items-center", className)} aria-label={`${alt} — beranda`}>
+      <Image src={src} alt={alt} width={500} height={100} priority className="h-8 w-auto sm:h-9" />
     </Link>
   );
 }

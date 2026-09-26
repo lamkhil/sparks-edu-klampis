@@ -6,7 +6,8 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { countActive, getSessionById, slotUsage } from "@/lib/data";
 import { defaultFields, fieldsSchema, fileFields, guestField, slotField, slotsTotal } from "@/lib/form-schema";
-import { sendConfirmation } from "@/lib/mailer";
+import { sendConfirmation, sendMail } from "@/lib/mailer";
+import { DEFAULT_REMINDERS, escapeHtml, renderTemplate, stripCopyMarks, templateVars } from "@/lib/template";
 import { promoSchema } from "@/lib/promo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
@@ -80,6 +81,16 @@ const sessionSchema = z.object({
   one_per_email: z.boolean(),
   track_payment: z.boolean(),
   promo: promoSchema,
+  reminders: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(40),
+        name: z.string().trim().min(1, "Nama pengingat wajib diisi").max(60),
+        text: z.string().trim().min(1, "Teks pengingat wajib diisi").max(3000),
+        email_subject: z.string().max(200).optional(),
+      }),
+    )
+    .max(10),
 });
 
 export type SessionInput = z.input<typeof sessionSchema>;
@@ -185,4 +196,29 @@ export async function deleteSubmission(id: string) {
   if (paths.length) await db.storage.from("payments").remove(paths);
   revalidatePath(`/admin/sesi/${sub.session_id}/submisi`);
   return { ok: true };
+}
+
+/** Kirim pengingat via email ke pendaftar terpilih yang punya email. */
+export async function sendReminderEmails(sessionId: string, reminderId: string, submissionIds: string[]) {
+  await requireAdmin();
+  const session = await getSessionById(sessionId);
+  if (!session) return { ok: false as const, error: "Sesi tidak ditemukan" };
+  const reminder = (session.reminders?.length ? session.reminders : DEFAULT_REMINDERS).find((r) => r.id === reminderId);
+  if (!reminder) return { ok: false as const, error: "Template pengingat tidak ditemukan" };
+  const { data } = await createAdminClient().from("submissions").select("*").eq("session_id", sessionId).in("id", submissionIds.slice(0, 500));
+  let sent = 0;
+  const failed: string[] = [];
+  for (const sub of (data ?? []) as Submission[]) {
+    if (!sub.email) continue;
+    const vars = templateVars(session, sub);
+    const text = stripCopyMarks(renderTemplate(reminder.text, vars));
+    const subject = stripCopyMarks(renderTemplate(reminder.email_subject || reminder.name, vars));
+    try {
+      await sendMail(sub.email, subject, text, `<div style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.6">${escapeHtml(text).replace(/\n/g, "<br>")}</div>`);
+      sent++;
+    } catch {
+      failed.push(sub.code);
+    }
+  }
+  return { ok: true as const, sent, failed };
 }

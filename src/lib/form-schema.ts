@@ -25,10 +25,26 @@ export interface Slot {
   guest_quota: number;
 }
 
-export interface Guest {
-  nama: string;
-  usia: string;
-  telepon: string;
+/** Satu kolom isian untuk tiap teman (diatur di form builder). */
+export interface GuestSubField {
+  key: string;
+  label: string;
+  type: "short_text" | "phone" | "number";
+  required: boolean;
+  placeholder?: string;
+}
+
+export type Guest = Record<string, string>;
+
+/** Kolom bawaan jika field "Bawa teman" belum mengatur kolomnya sendiri. */
+export const DEFAULT_GUEST_FIELDS: GuestSubField[] = [
+  { key: "nama", label: "Nama teman", type: "short_text", required: true },
+  { key: "usia", label: "Usia", type: "short_text", required: true, placeholder: "4 tahun" },
+  { key: "telepon", label: "No. HP orang tua", type: "phone", required: true },
+];
+
+export function guestSubFields(f: FormField): GuestSubField[] {
+  return f.guest_fields?.length ? f.guest_fields : DEFAULT_GUEST_FIELDS;
 }
 
 export interface FormField {
@@ -41,10 +57,14 @@ export interface FormField {
   placeholder?: string;
   required: boolean;
   options?: string[];
+  /** type = select/radio: No. WhatsApp per opsi (mis. per Student Advisor) untuk tombol konfirmasi. */
+  option_wa?: Record<string, string>;
   /** type = slot */
   slots?: Slot[];
   /** type = guests: maksimal teman per pendaftar */
   max_guests?: number;
+  /** type = guests: kolom isian untuk tiap teman */
+  guest_fields?: GuestSubField[];
 }
 
 export const OPTION_TYPES: FieldType[] = ["select", "radio", "checkbox"];
@@ -83,8 +103,21 @@ const fieldSchema = z.object({
   placeholder: z.string().optional(),
   required: z.boolean(),
   options: z.array(z.string().trim().min(1)).optional(),
+  option_wa: z.record(z.string(), z.string().regex(/^[0-9+ -]{0,20}$/, "No. WhatsApp opsi tidak valid")).optional(),
   slots: z.array(slotSchema).optional(),
   max_guests: z.coerce.number().int().min(1).max(10).optional(),
+  guest_fields: z
+    .array(
+      z.object({
+        key: z.string().regex(/^[a-z0-9_]+$/, "Key kolom teman hanya huruf kecil, angka, underscore"),
+        label: z.string().trim().min(1, "Label kolom teman wajib diisi").max(80),
+        type: z.enum(["short_text", "phone", "number"]),
+        required: z.boolean(),
+        placeholder: z.string().max(80).optional(),
+      }),
+    )
+    .max(8)
+    .optional(),
 });
 
 /** Validasi struktur form yang disusun admin. */
@@ -166,12 +199,12 @@ export function readFormData(fields: FormField[], fd: FormData): Record<string, 
         out[f.key] = [];
         continue;
       }
-      const nama = fd.getAll(`${name}_nama`).map((v) => String(v).trim());
-      const usia = fd.getAll(`${name}_usia`).map((v) => String(v).trim());
-      const telepon = fd.getAll(`${name}_telepon`).map((v) => String(v).trim());
-      out[f.key] = nama
-        .map((n, i) => ({ nama: n, usia: usia[i] ?? "", telepon: telepon[i] ?? "" }))
-        .filter((g) => g.nama || g.usia || g.telepon);
+      const subs = guestSubFields(f);
+      const cols = subs.map((sf) => fd.getAll(`${name}_${sf.key}`).map((v) => String(v).trim()));
+      const rows = Math.max(0, ...cols.map((c) => c.length));
+      out[f.key] = Array.from({ length: rows }, (_, i) => Object.fromEntries(subs.map((sf, j) => [sf.key, cols[j][i] ?? ""]))).filter((g) =>
+        Object.values(g).some(Boolean),
+      );
     } else out[f.key] = String(fd.get(name) ?? "").trim();
   }
   return out;
@@ -219,14 +252,16 @@ export function answersSchema(fields: FormField[], filePrefix?: string) {
       }
       case "guests": {
         const max = f.max_guests ?? 1;
+        const obj: Record<string, z.ZodType> = {};
+        for (const sf of guestSubFields(f)) {
+          let c: z.ZodType<string> = z.string().max(200);
+          if (sf.type === "phone") c = z.string().regex(sf.required ? phoneRe : /^(\+?[0-9 ()-]{6,20})?$/, `${sf.label} tidak valid`);
+          if (sf.type === "number") c = z.string().regex(sf.required ? /^\d+([.,]\d+)?$/ : /^(\d+([.,]\d+)?)?$/, `${sf.label} harus angka`);
+          if (sf.required) c = c.refine((v) => v !== "", `${sf.label} wajib diisi`);
+          obj[sf.key] = c;
+        }
         s = z
-          .array(
-            z.object({
-              nama: z.string().min(1, "Nama teman wajib diisi").max(120),
-              usia: z.string().min(1, "Usia teman wajib diisi").max(20),
-              telepon: z.string().regex(phoneRe, "No. HP orang tua teman tidak valid"),
-            }),
-          )
+          .array(z.object(obj))
           .max(max, `Maksimal ${max} teman per pendaftar`)
           .refine((arr) => !f.required || arr.length > 0, req);
         break;
@@ -267,9 +302,10 @@ export function formatAnswer(value: unknown): string {
   return String(value);
 }
 
-export function formatGuests(value: unknown) {
+export function formatGuests(field: FormField, value: unknown) {
   if (!Array.isArray(value) || value.length === 0) return "Tidak";
-  return (value as Guest[]).map((g) => `${g.nama} (${g.usia}) – ortu ${g.telepon}`).join("; ");
+  const subs = guestSubFields(field);
+  return (value as Guest[]).map((g) => subs.map((sf) => `${sf.label}: ${g[sf.key] || "-"}`).join(", ")).join(" | ");
 }
 
 /** Format jawaban sesuai tipe field (label jadwal, daftar teman, dll). */
@@ -278,7 +314,7 @@ export function formatFieldAnswer(field: FormField, value: unknown): string {
     case "slot":
       return field.slots?.find((s) => s.id === value)?.label ?? formatAnswer(value);
     case "guests":
-      return formatGuests(value);
+      return formatGuests(field, value);
     case "file":
       return value ? "Terlampir" : "";
     default:

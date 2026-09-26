@@ -1,13 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
-import { fmtEventDate, type Promo } from "@/lib/promo";
+import { fmtEventDate, priceLabel, type Promo } from "@/lib/promo";
 import { slotField } from "@/lib/form-schema";
 import { sessionAvailability, type Session, type SlotUsage } from "@/lib/types";
 import { ShootingStar, Sparkle, Star } from "./brand";
 import { Badge, QuotaBar, buttonClass, cn } from "./kit";
 
 /** Label harga berbentuk ledakan bintang seperti di poster. */
-export function PriceBurst({ price, unit, className, tone = "sun" }: { price: string; unit?: string; className?: string; tone?: "sun" | "brand" }) {
+export function PriceBurst({
+  price,
+  unit,
+  prefix,
+  className,
+  tone = "sun",
+}: {
+  price: string;
+  unit?: string;
+  prefix?: string;
+  className?: string;
+  tone?: "sun" | "brand";
+}) {
   const pts = Array.from({ length: 28 }, (_, i) => {
     const r = i % 2 === 0 ? 50 : 42;
     const a = (Math.PI * 2 * i) / 28 - Math.PI / 2;
@@ -19,7 +31,7 @@ export function PriceBurst({ price, unit, className, tone = "sun" }: { price: st
         <polygon points={pts} fill={tone === "sun" ? "var(--color-sun-400)" : "var(--color-brand-600)"} stroke="var(--color-brand-800)" strokeWidth="3" strokeLinejoin="round" />
       </svg>
       <div className={cn("relative -rotate-6 text-center leading-none", tone === "sun" ? "text-brand-900" : "text-white")}>
-        <span className="block text-[0.6em] font-semibold">hanya</span>
+        {prefix && <span className="block text-[0.6em] font-semibold">{prefix}</span>}
         <span className="block text-[1.5em] font-extrabold tracking-tight">{price}</span>
         {unit && <span className="block text-[0.6em] font-bold">{unit}</span>}
       </div>
@@ -91,7 +103,7 @@ export function IncludesRibbon({ promo }: { promo: Promo }) {
   return (
     <div className="relative overflow-hidden rounded-leaf bg-brand-800 p-6 text-white">
       <Sparkle className="absolute right-4 top-4 h-5 w-5 text-sun-300" />
-      <p className="inline-block rounded-full bg-cream px-3 py-1 text-sm font-bold text-brand-800">Yang kamu dapat</p>
+      {promo.includes_title && <p className="inline-block rounded-full bg-cream px-3 py-1 text-sm font-bold text-brand-800">{promo.includes_title}</p>}
       <ul className="mt-4 space-y-2">
         {promo.includes.map((i) => (
           <li key={i} className="flex items-start gap-2.5 text-sm">
@@ -113,7 +125,7 @@ export function PromoDeal({ promo }: { promo: Promo }) {
         {promo.promo_text && <p className="font-bold text-ink">{promo.promo_text}</p>}
         {promo.promo_price && (
           <p className="text-sun-700">
-            Cukup <b className="text-ink">{promo.promo_price}</b> {promo.promo_unit}
+            <b className="text-ink">{promo.promo_price}</b> {promo.promo_unit}
           </p>
         )}
       </div>
@@ -145,7 +157,14 @@ export function SessionCard({ session, used, featured, usage = {} }: { session: 
             <ShootingStar className="h-28 w-28" />
           </div>
         )}
-        {promo.price && <PriceBurst price={promo.price} unit={promo.price_unit} className="absolute -bottom-2 left-2 w-24 text-[13px] sm:w-28 sm:text-[15px]" />}
+        {priceLabel(promo) && (
+          <PriceBurst
+            price={priceLabel(promo)}
+            unit={promo.price_unit}
+            prefix={promo.price_prefix}
+            className="absolute -bottom-2 left-2 w-24 text-[13px] sm:w-28 sm:text-[15px]"
+          />
+        )}
       </Link>
 
       <div className="flex flex-1 flex-col gap-4 p-6">

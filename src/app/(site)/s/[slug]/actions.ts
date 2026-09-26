@@ -6,6 +6,7 @@ import type { FormState } from "@/components/dynamic-form";
 import { getSessionBySlug } from "@/lib/data";
 import { emailKey, fileFields, guestField, readFormData, slotField, validateAnswers } from "@/lib/form-schema";
 import { sendConfirmation } from "@/lib/mailer";
+import { computeAmount } from "@/lib/promo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
 
@@ -68,6 +69,10 @@ export async function submitForm(slug: string, prev: FormState, fd: FormData): P
     return { message: code ? ERRORS[code] : "Terjadi kesalahan, coba lagi.", values: raw, nonce };
   }
   const row = (Array.isArray(data) ? data[0] : data) as { code: string; submission_id: string };
+
+  // Simpan total bayar saat itu, agar tidak berubah jika harga sesi diubah kemudian.
+  const amount = computeAmount(session.promo ?? {}, guests);
+  if (amount !== null) await db.from("submissions").update({ amount }).eq("id", row.submission_id);
 
   const { data: sub } = await db.from("submissions").select("*").eq("id", row.submission_id).single();
   if (sub) await sendConfirmation(session, sub as Submission);

@@ -1,5 +1,6 @@
 import type { FormField } from "./form-schema";
 import type { Promo } from "./promo";
+import type { Reminder } from "./template";
 
 export type SessionStatus = "draft" | "published" | "closed";
 export type PaymentStatus = "none" | "pending" | "paid" | "rejected";
@@ -28,6 +29,7 @@ export interface Session {
   one_per_email: boolean;
   track_payment: boolean;
   promo: Promo;
+  reminders: Reminder[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +43,8 @@ export interface Submission {
   status: "active" | "cancelled";
   slot: string | null;
   guest_count: number;
+  /** Total bayar saat mendaftar (Rupiah); null jika sesi tidak berbayar. */
+  amount: number | null;
   payment_status: PaymentStatus;
   email_status: "pending" | "sent" | "failed" | "skipped";
   email_error: string | null;

@@ -6,7 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { FieldBlock } from "@/components/dynamic-form";
 import { Button, Input, Label, Select, Textarea, cn } from "@/components/kit";
-import { FIELD_TYPES, hasOptions, newSlot, slugifyKey, type FieldType, type FormField, type Slot } from "@/lib/form-schema";
+import { DEFAULT_GUEST_FIELDS, FIELD_TYPES, guestSubFields, hasOptions, newSlot, slugifyKey, type FieldType, type FormField, type GuestSubField, type Slot } from "@/lib/form-schema";
 import type { SlotUsage } from "@/lib/types";
 
 function uniqueKey(base: string, fields: FormField[], selfId?: string) {
@@ -209,10 +209,12 @@ function FieldCard({
             <div className="sm:col-span-2">
               <Label>Maksimal teman per pendaftar</Label>
               <Input type="number" min={1} max={10} className="w-32" value={field.max_guests ?? 1} onChange={(e) => onChange({ max_guests: Number(e.target.value) || 1 })} />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Pengisi mengisi nama, usia & no. HP orang tua teman. Total teman per jadwal dibatasi oleh &quot;Kuota teman&quot; di field Jadwal berkuota.
-              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Total teman per jadwal dibatasi oleh &quot;Kuota teman&quot; di field Jadwal berkuota.</p>
             </div>
+          )}
+          {field.type === "guests" && <GuestFieldsEditor fields={guestSubFields(field)} onChange={(guest_fields) => onChange({ guest_fields })} />}
+          {(field.type === "select" || field.type === "radio") && (
+            <OptionWaEditor options={field.options ?? []} value={field.option_wa} onChange={(option_wa) => onChange({ option_wa })} />
           )}
           {field.type === "file" && (
             <p className="rounded-xl bg-sun-50 p-3 text-xs text-sun-700 ring-1 ring-sun-200 sm:col-span-2">
@@ -235,6 +237,7 @@ function typeDefaults(type: FieldType, prev?: FormField): Partial<FormField> {
     options: hasOptions(type) ? (prev?.options?.length ? prev.options : ["Opsi 1", "Opsi 2"]) : undefined,
     slots: type === "slot" ? (prev?.slots?.length ? prev.slots : [newSlot(1), newSlot(2)]) : undefined,
     max_guests: type === "guests" ? (prev?.max_guests ?? 1) : undefined,
+    guest_fields: type === "guests" ? (prev?.guest_fields ?? DEFAULT_GUEST_FIELDS) : undefined,
     required: type === "slot" ? true : (prev?.required ?? false),
   };
 }
@@ -286,6 +289,80 @@ export function SlotsEditor({ slots, onChange, usage, bare }: { slots: Slot[]; o
           Total: <b>{total}</b> peserta + <b>{totalGuests}</b> teman. Kuota sesi otomatis mengikuti total peserta.
         </p>
       </div>
+    </div>
+  );
+}
+
+const GUEST_TYPES: Record<GuestSubField["type"], string> = { short_text: "Teks", phone: "No. HP", number: "Angka" };
+
+function GuestFieldsEditor({ fields, onChange }: { fields: GuestSubField[]; onChange: (f: GuestSubField[]) => void }) {
+  const update = (i: number, patch: Partial<GuestSubField>) => onChange(fields.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  return (
+    <div className="sm:col-span-2">
+      <Label>Kolom isian untuk tiap teman</Label>
+      <div className="space-y-2">
+        {fields.map((f, i) => (
+          <div key={i} className="grid grid-cols-2 items-center gap-2 rounded-xl border border-line bg-white p-2 sm:grid-cols-[1fr_130px_110px_auto_32px]">
+            <Input
+              className="col-span-2 sm:col-span-1"
+              value={f.label}
+              placeholder="Label, mis. Nama teman"
+              onChange={(e) => update(i, { label: e.target.value, key: slugifyKey(e.target.value) || f.key })}
+            />
+            <Input value={f.placeholder ?? ""} placeholder="Placeholder" onChange={(e) => update(i, { placeholder: e.target.value || undefined })} />
+            <Select value={f.type} onChange={(e) => update(i, { type: e.target.value as GuestSubField["type"] })}>
+              {Object.entries(GUEST_TYPES).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </Select>
+            <label className="flex items-center gap-1.5 whitespace-nowrap text-xs">
+              <input type="checkbox" checked={f.required} onChange={(e) => update(i, { required: e.target.checked })} className="accent-brand-600" /> Wajib
+            </label>
+            <button
+              type="button"
+              disabled={fields.length <= 1}
+              onClick={() => onChange(fields.filter((_, j) => j !== i))}
+              className="rounded-lg text-sm text-[#c20048] hover:bg-berry-500/10 disabled:opacity-30"
+              aria-label="Hapus kolom"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="secondary"
+        className="mt-2"
+        onClick={() => onChange([...fields, { key: `kolom_${fields.length + 1}`, label: `Kolom ${fields.length + 1}`, type: "short_text", required: false }])}
+      >
+        + Tambah kolom
+      </Button>
+    </div>
+  );
+}
+
+function OptionWaEditor({ options, value, onChange }: { options: string[]; value?: Record<string, string>; onChange: (v: Record<string, string> | undefined) => void }) {
+  const enabled = value !== undefined;
+  const opts = options.map((o) => o.trim()).filter(Boolean);
+  return (
+    <div className="sm:col-span-2">
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={enabled} onChange={(e) => onChange(e.target.checked ? {} : undefined)} className="h-4 w-4 accent-brand-600" />
+        Tiap opsi punya No. WhatsApp (tombol konfirmasi pembayaran mengarah ke opsi yang dipilih)
+      </label>
+      {enabled && (
+        <div className="mt-2 space-y-2">
+          {opts.map((o) => (
+            <div key={o} className="grid grid-cols-[1fr_1fr] items-center gap-2">
+              <span className="truncate text-sm font-medium">{o}</span>
+              <Input value={value?.[o] ?? ""} placeholder="08xxxxxxxxxx" inputMode="tel" onChange={(e) => onChange({ ...value, [o]: e.target.value })} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

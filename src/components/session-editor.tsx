@@ -8,6 +8,7 @@ import { Alert, Button, Input, Label, Select, Textarea, Toggle, cn } from "@/com
 import type { SessionInput, SaveResult } from "@/app/admin/(panel)/sesi/actions";
 import { newSlot, slotsTotal, type FormField, type Slot } from "@/lib/form-schema";
 import type { Session, SlotUsage } from "@/lib/types";
+import { BUILTIN_PLACEHOLDERS, DEFAULT_REMINDERS, type Reminder } from "@/lib/template";
 
 // Semua waktu di admin memakai WIB (UTC+7) agar konsisten di server & browser.
 const WIB_MS = 7 * 3600 * 1000;
@@ -25,11 +26,12 @@ const TABS = [
   ["form", "Form"],
   ["penutup", "Pesan Penutup"],
   ["email", "Email"],
+  ["pengingat", "Pengingat"],
   ["akses", "Cek Ulang & Akses"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 
-const BUILTIN = ["kode", "judul", "email", "link_cek", "tanggal"];
+const BUILTIN = Object.keys(BUILTIN_PLACEHOLDERS);
 
 function Placeholders({ fields }: { fields: FormField[] }) {
   const keys = [...BUILTIN, ...fields.map((f) => f.key).filter((k) => !BUILTIN.includes(k))];
@@ -67,6 +69,7 @@ export function SessionEditor({
     closes_at: toWib(session.closes_at),
     edit_deadline: toWib(session.edit_deadline),
     promo: session.promo ?? {},
+    reminders: session.reminders?.length ? session.reminders : DEFAULT_REMINDERS,
   }));
   const [dirty, setDirty] = useState(false);
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -99,6 +102,7 @@ export function SessionEditor({
         allow_cancel: s.allow_cancel,
         one_per_email: s.one_per_email,
         track_payment: s.track_payment ?? false,
+        reminders: s.reminders,
         promo: {
           ...s.promo,
           includes: s.promo.includes?.map((i) => i.trim()).filter(Boolean),
@@ -112,6 +116,7 @@ export function SessionEditor({
     });
 
   const publicUrl = `${appUrl}/s/${s.slug}`;
+  const setReminder = (i: number, patch: Partial<Reminder>) => set("reminders", s.reminders.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const slotQuota = slotsTotal(s.fields);
   const slotFieldObj = s.fields.find((f) => f.type === "slot");
   const setSlots = (slots: Slot[]) => set("fields", s.fields.map((f) => (f.type === "slot" ? { ...f, slots } : f)));
@@ -268,7 +273,10 @@ export function SessionEditor({
           <Label>Pesan setelah form dikirim</Label>
           <Textarea rows={8} value={s.success_message} onChange={(e) => set("success_message", e.target.value)} />
           <Placeholders fields={s.fields} />
-          <p className="mt-3 text-xs text-muted-foreground">Kode submission selalu ditampilkan di bawah pesan ini.</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Kode pendaftaran & kartu Pembayaran (total, rekening, tombol WhatsApp) selalu tampil di bawah pesan ini. Tulis <code>[[teks]]</code> agar teks bisa disalin
+            dengan sekali klik.
+          </p>
         </div>
       )}
 
@@ -285,6 +293,34 @@ export function SessionEditor({
             <Placeholders fields={s.fields} />
             <p className="mt-2 text-xs text-muted-foreground">Ringkasan seluruh isian otomatis dilampirkan di bawah isi email.</p>
           </div>
+        </div>
+      )}
+
+      {tab === "pengingat" && (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Template pesan untuk tombol <b>Kirim pengingat</b> di halaman Pendaftar (via WhatsApp wa.me atau email). Boleh pakai placeholder.
+          </p>
+          {s.reminders.map((r, i) => (
+            <div key={r.id} className="space-y-3 rounded-2xl border border-line bg-white p-4">
+              <div className="flex gap-2">
+                <Input value={r.name} placeholder="Nama pengingat" onChange={(e) => setReminder(i, { name: e.target.value })} />
+                <Button type="button" variant="ghost" onClick={() => set("reminders", s.reminders.filter((_, j) => j !== i))}>
+                  Hapus
+                </Button>
+              </div>
+              <Input value={r.email_subject ?? ""} placeholder="Subjek email (jika dikirim via email)" onChange={(e) => setReminder(i, { email_subject: e.target.value })} />
+              <Textarea rows={8} value={r.text} onChange={(e) => setReminder(i, { text: e.target.value })} />
+            </div>
+          ))}
+          <Placeholders fields={s.fields} />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => set("reminders", [...s.reminders, { id: `r_${Date.now().toString(36)}`, name: "Pengingat baru", text: "Halo, {{kode}}…" }])}
+          >
+            + Tambah template pengingat
+          </Button>
         </div>
       )}
 

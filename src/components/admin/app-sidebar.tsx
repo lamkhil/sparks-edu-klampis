@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, ExternalLink, KeyRound, LayoutDashboard, LogOut, Mail, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Palette, ChevronsUpDown, ExternalLink, KeyRound, LayoutDashboard, LogOut, Mail, Search, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/admin/actions";
@@ -24,11 +24,12 @@ import {
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/sesi", label: "Sesi & Form", icon: Sparkles },
+  { href: "/admin/situs", label: "Tampilan Situs", icon: Palette },
   { href: "/admin/pengaturan", label: "Pengaturan SMTP", icon: Mail },
   { href: "/admin/pengguna", label: "Admin", icon: ShieldCheck },
 ];
 
-export function AppSidebar({ email }: { email: string }) {
+export function AppSidebar({ email, brand, branch }: { email: string; brand: string; branch: string }) {
   const pathname = usePathname();
   const initials = email.slice(0, 2).toUpperCase();
 
@@ -43,10 +44,8 @@ export function AppSidebar({ email }: { email: string }) {
                   <ShootingStar className="size-6" />
                 </span>
                 <span className="grid leading-tight">
-                  <span className="text-base font-bold text-white">
-                    Sparks<span className="text-sun-400">English</span>
-                  </span>
-                  <span className="text-xs text-sidebar-foreground/70">Klampis · Admin</span>
+                  <span className="truncate text-base font-bold text-white">{brand}</span>
+                  <span className="text-xs text-sidebar-foreground/70">{branch ? `${branch} · Admin` : "Admin"}</span>
                 </span>
               </Link>
             </SidebarMenuButton>

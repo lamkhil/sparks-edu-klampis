@@ -16,6 +16,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { RowActions } from "./row-actions";
+import { ReminderDialog, type ReminderRecipient } from "./reminder-dialog";
+import { DEFAULT_REMINDERS, registrantPhone, templateVars } from "@/lib/template";
+import { formatRupiah } from "@/lib/promo";
 
 export const metadata = { title: "Pendaftar" };
 
@@ -46,6 +49,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
   const gf = guestField(session.fields);
   const files = fileFields(session.fields);
   const hasPayment = session.track_payment || files.length > 0;
+  const hasAmount = Boolean(session.promo?.fee || session.promo?.guest_fee);
 
   const db = createAdminClient();
   let query = db.from("submissions").select("*").eq("session_id", id).order("created_at", { ascending: true });
@@ -73,6 +77,21 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
     for (const s of signed ?? []) if (s.path && s.signedUrl) proofUrls.set(s.path, s.signedUrl);
   }
 
+  // Semua pendaftar aktif untuk dialog pengingat (tidak terpengaruh filter tabel).
+  const { data: activeData } = await db.from("submissions").select("*").eq("session_id", id).eq("status", "active").order("created_at");
+  const firstText = session.fields.find((f) => f.type === "short_text");
+  const recipients: ReminderRecipient[] = ((activeData ?? []) as Submission[]).map((s) => ({
+    id: s.id,
+    code: s.code,
+    name: (firstText && String(s.answers[firstText.key] ?? "")) || s.code,
+    slot: s.slot,
+    slotLabel: sf ? formatFieldAnswer(sf, s.slot) : "",
+    payment: s.payment_status,
+    phone: registrantPhone(session.fields, s.answers),
+    email: s.email,
+    vars: templateVars(session, s),
+  }));
+
   const shown = session.fields.filter((f) => !["email", "slot", "guests", "file"].includes(f.type)).slice(0, 2);
   const totalGuests = Object.values(usage).reduce((a, u) => a + u.guests, 0);
   const href = (patch: Record<string, string>) => {
@@ -94,6 +113,13 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
         description={session.title}
         actions={
           <>
+            <ReminderDialog
+              sessionId={id}
+              reminders={session.reminders?.length ? session.reminders : DEFAULT_REMINDERS}
+              recipients={recipients}
+              slots={(sf?.slots ?? []).map((x) => ({ id: x.id, label: x.label }))}
+              hasPayment={hasPayment}
+            />
             <Button variant="outline" asChild>
               <Link href={`/admin/sesi/${id}`}>
                 <Pencil /> Edit sesi
@@ -216,6 +242,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
               {sf && <TableHead>Jadwal</TableHead>}
               {gf && <TableHead className="text-center">Teman</TableHead>}
               {hasPayment && <TableHead>Pembayaran</TableHead>}
+              {hasAmount && <TableHead className="text-right">Total</TableHead>}
               <TableHead className="hidden xl:table-cell">Waktu daftar</TableHead>
               <TableHead className="hidden lg:table-cell">Email</TableHead>
               <TableHead className="w-12 pr-4" />
@@ -250,6 +277,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
                     <StatusBadge status={sub.payment_status === "none" ? "pending" : sub.payment_status} kind="payment" />
                   </TableCell>
                 )}
+                {hasAmount && <TableCell className="whitespace-nowrap text-right tabular-nums">{sub.amount !== null ? formatRupiah(sub.amount) : "—"}</TableCell>}
                 <TableCell className="hidden whitespace-nowrap text-sm xl:table-cell">{fmtDate(sub.created_at)}</TableCell>
                 <TableCell className="hidden lg:table-cell" title={sub.email_error ?? sub.email ?? "Tanpa email"}>
                   <StatusBadge status={sub.email_status} />

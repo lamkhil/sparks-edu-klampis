@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { createPosterUpload } from "@/app/admin/(panel)/sesi/actions";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
-import type { Promo } from "@/lib/promo";
+import { DEFAULT_WA_TEMPLATE, type Promo } from "@/lib/promo";
 import { Alert, Button, Input, Label, Textarea } from "./kit";
 
 export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string; promo: Promo; onChange: (p: Promo) => void }) {
@@ -95,14 +95,52 @@ export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string;
           <Input value={promo.location_address ?? ""} placeholder="Galaxy Mall 2, Lt.1, Surabaya" onChange={(e) => set("location_address", e.target.value)} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 rounded-2xl bg-sun-50 p-4 ring-1 ring-sun-200 sm:col-span-2 sm:grid-cols-4">
+        <Section title="Harga & pembayaran" hint="Total bayar dihitung otomatis: harga pendaftar + (jumlah teman × harga teman). Tampil di form, halaman penutup, admin & export.">
           <div>
-            <Label>Harga</Label>
-            <Input value={promo.price ?? ""} placeholder="80K" onChange={(e) => set("price", e.target.value)} />
+            <Label>Harga per pendaftar (Rp)</Label>
+            <Input type="number" min={0} value={promo.fee ?? ""} placeholder="75000" onChange={(e) => set("fee", e.target.value === "" ? undefined : Number(e.target.value))} />
+          </div>
+          <div>
+            <Label>Harga per teman (Rp)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={promo.guest_fee ?? ""}
+              placeholder={promo.fee ? String(promo.fee) : "sama dengan harga pendaftar"}
+              onChange={(e) => set("guest_fee", e.target.value === "" ? undefined : Number(e.target.value))}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Isi lebih murah untuk diskon ajak teman.</p>
+          </div>
+          <div>
+            <Label>Bank</Label>
+            <Input value={promo.bank_name ?? ""} placeholder="Jago Syariah" onChange={(e) => set("bank_name", e.target.value)} />
+          </div>
+          <div>
+            <Label>No. rekening</Label>
+            <Input value={promo.bank_account ?? ""} inputMode="numeric" placeholder="505112168603" onChange={(e) => set("bank_account", e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Atas nama</Label>
+            <Input value={promo.bank_holder ?? ""} placeholder="Nama pemilik rekening" onChange={(e) => set("bank_holder", e.target.value)} />
+          </div>
+        </Section>
+
+        <Section title="Label harga di poster & kartu" hint="Label bintang harga. Kosongkan teks harga agar otomatis dari harga per pendaftar (mis. 75K).">
+          <div>
+            <Label>Teks harga</Label>
+            <Input value={promo.price ?? ""} placeholder={promo.fee ? "otomatis" : "80K"} onChange={(e) => set("price", e.target.value)} />
+          </div>
+          <div>
+            <Label>Kata di atas harga</Label>
+            <Input value={promo.price_prefix ?? ""} placeholder="hanya" onChange={(e) => set("price_prefix", e.target.value)} />
           </div>
           <div>
             <Label>Satuan</Label>
-            <Input value={promo.price_unit ?? ""} placeholder="/pax" onChange={(e) => set("price_unit", e.target.value)} />
+            <Input value={promo.price_unit ?? ""} placeholder="/anak" onChange={(e) => set("price_unit", e.target.value)} />
+          </div>
+          <div>
+            <Label>Teks promo</Label>
+            <Input value={promo.promo_text ?? ""} placeholder="Ajak teman & hemat 20K!" onChange={(e) => set("promo_text", e.target.value)} />
           </div>
           <div>
             <Label>Harga promo</Label>
@@ -112,18 +150,30 @@ export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string;
             <Label>Satuan promo</Label>
             <Input value={promo.promo_unit ?? ""} placeholder="/2 orang" onChange={(e) => set("promo_unit", e.target.value)} />
           </div>
-          <div className="col-span-2 sm:col-span-4">
-            <Label>Teks promo</Label>
-            <Input value={promo.promo_text ?? ""} placeholder="Ajak teman & hemat 20K!" onChange={(e) => set("promo_text", e.target.value)} />
+        </Section>
+
+        <Section
+          title="WhatsApp konfirmasi"
+          hint="Tombol WhatsApp di kartu Pembayaran. Nomor per Student Advisor diatur di pertanyaan dropdown-nya (tab Form → centang “Tiap opsi punya No. WhatsApp”)."
+        >
+          <div>
+            <Label>No. WhatsApp contact center</Label>
+            <Input value={promo.whatsapp ?? ""} placeholder="08xxxxxxxxxx" inputMode="tel" onChange={(e) => set("whatsapp", e.target.value)} />
           </div>
-        </div>
+          <div>
+            <Label>Label tombol contact center</Label>
+            <Input value={promo.whatsapp_label ?? ""} placeholder="Hubungi Contact Center via WhatsApp" onChange={(e) => set("whatsapp_label", e.target.value)} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Template pesan WhatsApp</Label>
+            <Textarea rows={8} value={promo.wa_template ?? ""} placeholder={DEFAULT_WA_TEMPLATE} onChange={(e) => set("wa_template", e.target.value)} />
+            <p className="mt-1 text-xs text-muted-foreground">Kosongkan untuk memakai template bawaan (tampil sebagai placeholder). Bisa pakai {"{{kode}}"}, {"{{total}}"}, {"{{ringkasan}}"}, dll.</p>
+          </div>
+        </Section>
 
         <div className="sm:col-span-2">
-          <Label>No. WhatsApp konfirmasi pembayaran</Label>
-          <Input value={promo.whatsapp ?? ""} placeholder="08xxxxxxxxxx" inputMode="tel" onChange={(e) => set("whatsapp", e.target.value)} />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Jika diisi, halaman sukses & cek ulang menampilkan tombol &quot;Kirim bukti transfer via WhatsApp&quot; dengan pesan berisi kode & data pendaftar.
-          </p>
+          <Label>Judul daftar yang didapat</Label>
+          <Input value={promo.includes_title ?? ""} placeholder="Yang kamu dapat" onChange={(e) => set("includes_title", e.target.value)} />
         </div>
         <div className="sm:col-span-2">
           <Label>Yang didapat (satu per baris)</Label>
@@ -136,5 +186,18 @@ export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string;
         </div>
       </div>
     </div>
+  );
+}
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="grid gap-3 rounded-2xl bg-cream/70 p-4 ring-1 ring-line sm:col-span-2 sm:grid-cols-2">
+      <legend className="sr-only">{title}</legend>
+      <div className="sm:col-span-2">
+        <p className="font-semibold text-ink">{title}</p>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      {children}
+    </fieldset>
   );
 }

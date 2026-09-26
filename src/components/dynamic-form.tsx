@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useActionState, useContext, useRef, useState } from "react";
-import type { FieldErrors, FormField, Guest } from "@/lib/form-schema";
+import { createContext, useActionState, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { guestSubFields, type FieldErrors, type FormField, type Guest } from "@/lib/form-schema";
 import type { SlotUsage } from "@/lib/types";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { Alert, Button, Input, Label, Select, Textarea, cn } from "./kit";
@@ -23,6 +23,7 @@ type Ctx = {
   slotsOf: FormField | undefined;
   upload?: UploadAction;
   setUploading: (delta: number) => void;
+  setGuests: (n: number) => void;
 };
 const FormCtx = createContext<Ctx | null>(null);
 
@@ -92,11 +93,14 @@ function GuestsInput({ field, value, disabled }: { field: FormField; value?: unk
   const allowed = r ? Math.min(max, r.guests) : max;
   const blocked = r !== null && r.guests <= 0;
   const name = `f_${field.key}`;
+  const effective = bring && !blocked ? Math.min(count, allowed) : 0;
+  useEffect(() => ctx?.setGuests(effective), [effective, ctx]);
+  const subs = guestSubFields(field);
 
   if (disabled) {
     return (
       <p className="rounded-xl bg-cream px-3.5 py-2.5 text-sm">
-        {initial.length ? initial.map((g) => `${g.nama} (${g.usia})`).join(", ") : "Tidak membawa teman"}
+        {initial.length ? initial.map((g) => Object.values(g).filter(Boolean).join(" · ")).join(", ") : "Tidak membawa teman"}
       </p>
     );
   }
@@ -136,19 +140,20 @@ function GuestsInput({ field, value, disabled }: { field: FormField; value?: unk
       {bring && !blocked && (
         <div className="space-y-3">
           {Array.from({ length: Math.min(count, allowed) }, (_, i) => (
-            <div key={i} className="grid gap-3 rounded-2xl border border-line bg-cream/60 p-4 sm:grid-cols-[2fr_1fr_2fr]">
-              <div>
-                <Label>Nama teman{allowed > 1 ? ` ${i + 1}` : ""}</Label>
-                <Input name={`${name}_nama`} defaultValue={initial[i]?.nama} />
-              </div>
-              <div>
-                <Label>Usia</Label>
-                <Input name={`${name}_usia`} defaultValue={initial[i]?.usia} placeholder="4 tahun" />
-              </div>
-              <div>
-                <Label>No. HP orang tua</Label>
-                <Input name={`${name}_telepon`} type="tel" inputMode="tel" defaultValue={initial[i]?.telepon} />
-              </div>
+            <div key={i} className="grid gap-3 rounded-2xl border border-line bg-cream/60 p-4 sm:grid-cols-2">
+              {allowed > 1 && <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-2">Teman {i + 1}</p>}
+              {subs.map((sf) => (
+                <div key={sf.key}>
+                  <Label required={sf.required}>{sf.label}</Label>
+                  <Input
+                    name={`${name}_${sf.key}`}
+                    defaultValue={initial[i]?.[sf.key]}
+                    placeholder={sf.placeholder}
+                    type={sf.type === "phone" ? "tel" : "text"}
+                    inputMode={sf.type === "phone" ? "tel" : sf.type === "number" ? "decimal" : undefined}
+                  />
+                </div>
+              ))}
             </div>
           ))}
           {count < allowed && (
@@ -311,6 +316,7 @@ export function DynamicForm({
   footer,
   slotUsage = {},
   upload,
+  pricing,
 }: {
   fields: FormField[];
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
@@ -320,15 +326,23 @@ export function DynamicForm({
   footer?: React.ReactNode;
   slotUsage?: SlotUsage;
   upload?: UploadAction;
+  /** Harga per pendaftar & per teman untuk menampilkan total langsung. */
+  pricing?: { fee: number; guestFee: number } | null;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const values = state?.values ?? initialValues ?? {};
   const slotsOf = fields.find((f) => f.type === "slot");
   const [slot, setSlot] = useState(slotsOf && typeof values[slotsOf.key] === "string" ? (values[slotsOf.key] as string) : "");
   const [uploading, setUploadingN] = useState(0);
+  const [guests, setGuests] = useState(0);
+  const ctxValue = useMemo(
+    () => ({ usage: slotUsage, slot, setSlot, slotsOf, upload, setUploading: (d: number) => setUploadingN((n) => n + d), setGuests }),
+    [slotUsage, slot, slotsOf, upload],
+  );
+  const rupiah = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
 
   return (
-    <FormCtx.Provider value={{ usage: slotUsage, slot, setSlot, slotsOf, upload, setUploading: (d) => setUploadingN((n) => n + d) }}>
+    <FormCtx.Provider value={ctxValue}>
       <form action={formAction} className="space-y-6" noValidate>
         <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden className="hidden" />
         {state?.message && <Alert>{state.message}</Alert>}
@@ -339,6 +353,18 @@ export function DynamicForm({
             <FieldBlock key={f.id} field={f} value={values[f.key]} error={state?.errors?.[f.key]} disabled={lockedKeys.includes(f.key)} />
           ))}
         </div>
+        {pricing && (
+          <div className="flex flex-wrap items-end justify-between gap-2 rounded-2xl bg-sun-50 p-4 ring-1 ring-sun-200">
+            <div className="text-sm text-muted-foreground">
+              <p className="font-semibold text-ink">Total pembayaran</p>
+              <p>
+                1 pendaftar × {rupiah(pricing.fee)}
+                {guests > 0 && ` + ${guests} teman × ${rupiah(pricing.guestFee)}`}
+              </p>
+            </div>
+            <p className="text-2xl font-extrabold text-ink">{rupiah(pricing.fee + guests * pricing.guestFee)}</p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <Button type="submit" disabled={pending || uploading > 0}>
             {pending ? "Memproses…" : uploading > 0 ? "Menunggu upload…" : submitLabel}

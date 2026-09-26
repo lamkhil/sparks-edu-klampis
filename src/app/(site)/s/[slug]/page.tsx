@@ -11,6 +11,7 @@ import {
   PromoDeal,
 } from "@/components/session-promo";
 import { Alert, Badge, QuotaBar } from "@/components/kit";
+import { priceLabel } from "@/lib/promo";
 import { countActive, getSessionBySlug, slotUsage } from "@/lib/data";
 import { fmtDate } from "@/lib/format";
 import { sessionAvailability } from "@/lib/types";
@@ -97,9 +98,10 @@ export default async function FormPage({ params }: PageProps<"/s/[slug]">) {
                       className="h-auto w-full"
                     />
                   </div>
-                  {promo.price && (
+                  {priceLabel(promo) && (
                     <PriceBurst
-                      price={promo.price}
+                      prefix={promo.price_prefix}
+                      price={priceLabel(promo)}
                       unit={promo.price_unit}
                       className="absolute -right-4 -top-6 w-28 text-[15px] sm:w-32 sm:text-base"
                     />
@@ -134,9 +136,9 @@ export default async function FormPage({ params }: PageProps<"/s/[slug]">) {
                   {promo.subtitle}
                 </p>
               )}
-              {!promo.poster_url && promo.price && (
+              {!promo.poster_url && priceLabel(promo) && (
                 <p className="mt-3 text-2xl font-extrabold text-brand-700">
-                  {promo.price}{" "}
+                  {priceLabel(promo)}{" "}
                   <span className="text-base font-semibold text-muted-foreground">
                     {promo.price_unit}
                   </span>
@@ -188,6 +190,7 @@ export default async function FormPage({ params }: PageProps<"/s/[slug]">) {
                   action={submitForm.bind(null, slug)}
                   upload={createProofUpload.bind(null, slug)}
                   slotUsage={usage}
+                  pricing={promo.fee || promo.guest_fee ? { fee: promo.fee ?? 0, guestFee: promo.guest_fee ?? promo.fee ?? 0 } : null}
                   submitLabel="Kirim pendaftaran"
                 />
               ) : (
