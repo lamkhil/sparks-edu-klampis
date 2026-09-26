@@ -4,25 +4,24 @@
 
 const clean = (v: string | undefined) => v?.trim().replace(/^["']|["']$/g, "") || undefined;
 
-export const SUPABASE_URL = clean(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL)!;
+// Nilai kosong ("") dianggap tidak diset, sehingga cadangan tetap dipakai.
+export const SUPABASE_URL = (clean(process.env.NEXT_PUBLIC_SUPABASE_URL) || clean(process.env.SUPABASE_URL))!;
 
-export const SUPABASE_PUBLIC_KEY = clean(
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    process.env.SUPABASE_PUBLISHABLE_KEY ??
-    process.env.SUPABASE_ANON_KEY,
-)!;
+export const SUPABASE_PUBLIC_KEY = (clean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ||
+  clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+  clean(process.env.SUPABASE_PUBLISHABLE_KEY) ||
+  clean(process.env.SUPABASE_ANON_KEY))!;
 
 /** Hanya server. */
 export function supabaseServiceKey() {
-  const k = clean(process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY);
+  const k = clean(process.env.SUPABASE_SERVICE_ROLE_KEY) || clean(process.env.SUPABASE_SECRET_KEY);
   if (!k) throw new Error("SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY belum diset");
   return k;
 }
 
 /** Hanya server: kunci untuk menandatangani cookie cek ulang. */
 export function appSecret() {
-  const s = process.env.APP_SECRET ?? process.env.SUPABASE_JWT_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SECRET_KEY;
+  const s = clean(process.env.APP_SECRET) || clean(process.env.SUPABASE_JWT_SECRET) || clean(process.env.SUPABASE_SERVICE_ROLE_KEY) || clean(process.env.SUPABASE_SECRET_KEY);
   if (!s) throw new Error("APP_SECRET belum diset");
   return s;
 }

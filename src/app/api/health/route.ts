@@ -1,3 +1,4 @@
+import { SUPABASE_PUBLIC_KEY, SUPABASE_URL } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function GET() {
   const env = Object.fromEntries(keys.map((k) => [k, has(k)]));
   let urlValid = false;
   try {
-    const u = new URL((process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "").trim());
+    const u = new URL(SUPABASE_URL ?? "");
     urlValid = u.protocol === "https:" && u.hostname.endsWith(".supabase.co");
   } catch {}
   let db: string;
@@ -29,5 +30,5 @@ export async function GET() {
   } catch (e) {
     db = `exception: ${e instanceof Error ? e.message : String(e)}`;
   }
-  return Response.json({ env, supabaseUrlValid: urlValid, db });
+  return Response.json({ env, supabaseUrlValid: urlValid, publicKeyPresent: Boolean(SUPABASE_PUBLIC_KEY), db });
 }
