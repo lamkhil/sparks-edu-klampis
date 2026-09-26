@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Alert, Button, Card, Input, Label, Toggle } from "@/components/ui";
+import { Alert, Button, Card, Input, Label, Toggle } from "@/components/kit";
 import type { Settings } from "@/lib/types";
 import { saveSettings, type SettingsState } from "./actions";
 

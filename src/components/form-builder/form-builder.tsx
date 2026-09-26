@@ -5,8 +5,8 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { FieldBlock } from "@/components/dynamic-form";
-import { Button, Input, Label, Select, Textarea, cn } from "@/components/ui";
-import { FIELD_TYPES, hasOptions, slugifyKey, type FieldType, type FormField } from "@/lib/form-schema";
+import { Button, Input, Label, Select, Textarea, cn } from "@/components/kit";
+import { FIELD_TYPES, hasOptions, newSlot, slugifyKey, type FieldType, type FormField, type Slot } from "@/lib/form-schema";
 
 function uniqueKey(base: string, fields: FormField[], selfId?: string) {
   const taken = new Set(fields.filter((f) => f.id !== selfId).map((f) => f.key));
@@ -36,7 +36,7 @@ export function FormBuilder({ fields, onChange }: { fields: FormField[]; onChang
       label: `Pertanyaan ${fields.length + 1}`,
       key: uniqueKey(slugifyKey(label), fields),
       required: false,
-      options: hasOptions(type) ? ["Opsi 1", "Opsi 2"] : undefined,
+      ...typeDefaults(type),
     };
     onChange([...fields, f]);
     setOpenId(f.id);
@@ -51,14 +51,14 @@ export function FormBuilder({ fields, onChange }: { fields: FormField[]; onChang
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-gray-600">Seret ⋮⋮ untuk mengurutkan. Wajib ada tepat satu field Email (untuk konfirmasi & cek ulang).</p>
+        <p className="text-sm text-muted-foreground">Seret ⋮⋮ untuk mengurutkan. Wajib ada tepat satu field Email (untuk konfirmasi & cek ulang).</p>
         <Button type="button" variant="secondary" onClick={() => setPreview((p) => !p)}>
           {preview ? "Kembali ke editor" : "Pratinjau"}
         </Button>
       </div>
 
       {preview ? (
-        <div className="space-y-5 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6">
+        <div className="space-y-5 rounded-xl border border-dashed border-line bg-cream p-6">
           {fields.map((f) => (
             <FieldBlock key={f.id} field={f} />
           ))}
@@ -84,11 +84,11 @@ export function FormBuilder({ fields, onChange }: { fields: FormField[]; onChang
             </SortableContext>
           </DndContext>
 
-          <div className="mt-4 rounded-xl border border-dashed border-gray-300 p-4">
-            <p className="mb-2 text-xs font-medium uppercase text-gray-500">Tambah pertanyaan</p>
+          <div className="mt-4 rounded-xl border border-dashed border-line p-4">
+            <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Tambah pertanyaan</p>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(FIELD_TYPES) as FieldType[]).map((t) => (
-                <button key={t} type="button" onClick={() => add(t)} className="rounded-full border border-gray-300 bg-white px-3 py-1 text-sm hover:border-indigo-400 hover:text-indigo-700">
+                <button key={t} type="button" onClick={() => add(t)} className="rounded-full border border-line bg-white px-3 py-1 text-sm hover:border-brand-400 hover:text-brand-700">
                   + {FIELD_TYPES[t]}
                 </button>
               ))}
@@ -122,9 +122,9 @@ function FieldCard({
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style} className={cn("rounded-xl border bg-white", open ? "border-indigo-300 shadow" : "border-gray-200", isDragging && "z-10 opacity-80 shadow-lg")}>
+    <div ref={setNodeRef} style={style} className={cn("rounded-xl border bg-white", open ? "border-brand-300 shadow" : "border-line", isDragging && "z-10 opacity-80 shadow-lg")}>
       <div className="flex items-center gap-3 px-3 py-2.5">
-        <button type="button" {...attributes} {...listeners} className="cursor-grab px-1 text-gray-400 hover:text-gray-700" aria-label="Seret untuk mengurutkan">
+        <button type="button" {...attributes} {...listeners} className="cursor-grab px-1 text-muted-foreground/70 hover:text-muted-foreground" aria-label="Seret untuk mengurutkan">
           ⋮⋮
         </button>
         <button type="button" onClick={onToggle} className="min-w-0 flex-1 text-left">
@@ -132,11 +132,11 @@ function FieldCard({
             {field.label}
             {field.required && <span className="text-red-600"> *</span>}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {FIELD_TYPES[field.type]} · <span className="font-mono">{`{{${field.key}}}`}</span>
           </span>
         </button>
-        <button type="button" onClick={onDuplicate} className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">
+        <button type="button" onClick={onDuplicate} className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-cream">
           Duplikat
         </button>
         <button
@@ -149,7 +149,7 @@ function FieldCard({
       </div>
 
       {open && (
-        <div className="grid gap-4 border-t border-gray-100 p-4 sm:grid-cols-2">
+        <div className="grid gap-4 border-t border-line p-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label>Pertanyaan / label</Label>
             <Input
@@ -163,7 +163,7 @@ function FieldCard({
               value={field.type}
               onChange={(e) => {
                 const type = e.target.value as FieldType;
-                onChange({ type, options: hasOptions(type) ? (field.options?.length ? field.options : ["Opsi 1"]) : undefined });
+                onChange({ type, ...typeDefaults(type, field) });
               }}
             >
               {(Object.keys(FIELD_TYPES) as FieldType[]).map((t) => (
@@ -203,12 +203,80 @@ function FieldCard({
               />
             </div>
           )}
+          {field.type === "slot" && <SlotsEditor slots={field.slots ?? []} onChange={(slots) => onChange({ slots })} />}
+          {field.type === "guests" && (
+            <div className="sm:col-span-2">
+              <Label>Maksimal teman per pendaftar</Label>
+              <Input type="number" min={1} max={10} className="w-32" value={field.max_guests ?? 1} onChange={(e) => onChange({ max_guests: Number(e.target.value) || 1 })} />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Pengisi mengisi nama, usia & no. HP orang tua teman. Total teman per jadwal dibatasi oleh &quot;Kuota teman&quot; di field Jadwal berkuota.
+              </p>
+            </div>
+          )}
+          {field.type === "file" && (
+            <p className="rounded-xl bg-sun-50 p-3 text-xs text-sun-700 ring-1 ring-sun-200 sm:col-span-2">
+              File (JPG/PNG/WebP/PDF, maks 5 MB) disimpan privat dan hanya bisa dibuka admin dari halaman Pendaftar. Pendaftar otomatis berstatus pembayaran &quot;Menunggu&quot;.
+            </p>
+          )}
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <input type="checkbox" checked={field.required} onChange={(e) => onChange({ required: e.target.checked })} className="h-4 w-4 accent-indigo-600" />
+            <input type="checkbox" checked={field.required} onChange={(e) => onChange({ required: e.target.checked })} className="h-4 w-4 accent-brand-600" />
             Wajib diisi
           </label>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Nilai bawaan saat tipe field dipilih. */
+function typeDefaults(type: FieldType, prev?: FormField): Partial<FormField> {
+  return {
+    options: hasOptions(type) ? (prev?.options?.length ? prev.options : ["Opsi 1", "Opsi 2"]) : undefined,
+    slots: type === "slot" ? (prev?.slots?.length ? prev.slots : [newSlot(1), newSlot(2)]) : undefined,
+    max_guests: type === "guests" ? (prev?.max_guests ?? 1) : undefined,
+    required: type === "slot" ? true : (prev?.required ?? false),
+  };
+}
+
+function SlotsEditor({ slots, onChange }: { slots: Slot[]; onChange: (s: Slot[]) => void }) {
+  const update = (i: number, patch: Partial<Slot>) => onChange(slots.map((s, j) => (j === i ? { ...s, ...patch } : s)));
+  const total = slots.reduce((a, s) => a + (Number(s.quota) || 0), 0);
+  const totalGuests = slots.reduce((a, s) => a + (Number(s.guest_quota) || 0), 0);
+  return (
+    <div className="sm:col-span-2">
+      <Label>Daftar jadwal & kuota</Label>
+      <div className="overflow-hidden rounded-xl border border-line">
+        <div className="hidden grid-cols-[1fr_110px_110px_40px] gap-2 bg-cream px-3 py-2 text-xs font-semibold text-muted-foreground sm:grid">
+          <span>Nama jadwal (tampil ke pendaftar)</span>
+          <span>Kuota peserta</span>
+          <span>Kuota teman</span>
+          <span />
+        </div>
+        {slots.map((s, i) => (
+          <div key={s.id} className="grid grid-cols-2 gap-2 border-t border-line p-3 first:border-t-0 sm:grid-cols-[1fr_110px_110px_40px] sm:first:border-t">
+            <Input className="col-span-2 sm:col-span-1" value={s.label} placeholder="LS 1-2 (13.00–14.00)" onChange={(e) => update(i, { label: e.target.value })} />
+            <Input type="number" min={0} value={s.quota} aria-label="Kuota peserta" onChange={(e) => update(i, { quota: Number(e.target.value) })} />
+            <Input type="number" min={0} value={s.guest_quota} aria-label="Kuota teman" onChange={(e) => update(i, { guest_quota: Number(e.target.value) })} />
+            <button
+              type="button"
+              onClick={() => slots.length > 1 && confirm(`Hapus jadwal "${s.label}"?`) && onChange(slots.filter((_, j) => j !== i))}
+              className="rounded-lg text-sm text-[#c20048] hover:bg-berry-500/10 disabled:opacity-30"
+              disabled={slots.length <= 1}
+              aria-label="Hapus jadwal"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <Button type="button" variant="secondary" onClick={() => onChange([...slots, newSlot(slots.length + 1)])}>
+          + Tambah jadwal
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Total: <b>{total}</b> peserta + <b>{totalGuests}</b> teman. Kuota sesi otomatis mengikuti total peserta.
+        </p>
+      </div>
     </div>
   );
 }

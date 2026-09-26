@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Alert, Button, Input, Label } from "@/components/ui";
+import { Alert, Button, Input, Label } from "@/components/kit";
 import { login } from "../actions";
 
 export function LoginForm() {

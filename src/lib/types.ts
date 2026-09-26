@@ -1,6 +1,11 @@
 import type { FormField } from "./form-schema";
+import type { Promo } from "./promo";
 
 export type SessionStatus = "draft" | "published" | "closed";
+export type PaymentStatus = "none" | "pending" | "paid" | "rejected";
+
+/** Pemakaian kuota per jadwal. */
+export type SlotUsage = Record<string, { used: number; guests: number }>;
 
 export interface Session {
   id: string;
@@ -21,6 +26,7 @@ export interface Session {
   allow_cancel: boolean;
   edit_deadline: string | null;
   one_per_email: boolean;
+  promo: Promo;
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +38,9 @@ export interface Submission {
   email: string;
   answers: Record<string, unknown>;
   status: "active" | "cancelled";
+  slot: string | null;
+  guest_count: number;
+  payment_status: PaymentStatus;
   email_status: "pending" | "sent" | "failed" | "skipped";
   email_error: string | null;
   created_at: string;

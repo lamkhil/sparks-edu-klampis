@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { FormBuilder } from "@/components/form-builder/form-builder";
-import { Alert, Button, Input, Label, Select, Textarea, Toggle, cn } from "@/components/ui";
+import { PromoEditor } from "@/components/promo-editor";
+import { Alert, Button, Input, Label, Select, Textarea, Toggle, cn } from "@/components/kit";
 import type { SessionInput, SaveResult } from "@/app/admin/(panel)/sesi/actions";
-import type { FormField } from "@/lib/form-schema";
+import { slotsTotal, type FormField } from "@/lib/form-schema";
 import type { Session } from "@/lib/types";
 
 // Semua waktu di admin memakai WIB (UTC+7) agar konsisten di server & browser.
@@ -19,6 +21,7 @@ function fromWib(v: string) {
 
 const TABS = [
   ["detail", "Detail & Kuota"],
+  ["promo", "Promosi & Poster"],
   ["form", "Form"],
   ["penutup", "Pesan Penutup"],
   ["email", "Email"],
@@ -32,14 +35,14 @@ function Placeholders({ fields }: { fields: FormField[] }) {
   const keys = [...BUILTIN, ...fields.map((f) => f.key).filter((k) => !BUILTIN.includes(k))];
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
-      <span className="text-xs text-gray-500">Placeholder:</span>
+      <span className="text-xs text-muted-foreground">Placeholder:</span>
       {keys.map((k) => (
         <button
           key={k}
           type="button"
           title="Klik untuk menyalin"
           onClick={() => navigator.clipboard.writeText(`{{${k}}}`)}
-          className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700 hover:bg-indigo-100"
+          className="rounded bg-cream px-1.5 py-0.5 font-mono text-xs text-muted-foreground hover:bg-brand-100"
         >{`{{${k}}}`}</button>
       ))}
     </div>
@@ -53,6 +56,7 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
     opens_at: toWib(session.opens_at),
     closes_at: toWib(session.closes_at),
     edit_deadline: toWib(session.edit_deadline),
+    promo: session.promo ?? {},
   }));
   const [dirty, setDirty] = useState(false);
   const [result, setResult] = useState<SaveResult | null>(null);
@@ -71,7 +75,7 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
         slug: s.slug,
         description: s.description,
         status: s.status,
-        quota: s.quota,
+        quota: slotsTotal(s.fields) ?? s.quota,
         opens_at: fromWib(s.opens_at),
         closes_at: fromWib(s.closes_at),
         edit_deadline: fromWib(s.edit_deadline),
@@ -84,35 +88,53 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
         allow_edit: s.allow_edit,
         allow_cancel: s.allow_cancel,
         one_per_email: s.one_per_email,
+        promo: {
+          ...s.promo,
+          includes: s.promo.includes?.map((i) => i.trim()).filter(Boolean),
+        },
       });
       setResult(res);
-      if (res.ok) setDirty(false);
+      if (res.ok) {
+        setDirty(false);
+        toast.success("Perubahan tersimpan");
+      } else toast.error(res.error);
     });
 
   const publicUrl = `${appUrl}/s/${s.slug}`;
+  const slotQuota = slotsTotal(s.fields);
 
   return (
     <div>
-      <div className="sticky top-0 z-20 -mx-4 mb-6 border-b border-gray-200 bg-[var(--background)]/95 px-4 py-3 backdrop-blur">
+      <div className="sticky top-14 z-20 -mx-4 mb-6 border-b border-line bg-background/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="mr-auto truncate text-xl font-bold">{s.title || "Tanpa judul"}</h1>
-          <Select value={s.status} onChange={(e) => set("status", e.target.value as Session["status"])} className="w-auto">
+          <div className="mr-auto min-w-0">
+            <h1 className="truncate text-xl font-bold tracking-tight">{s.title || "Tanpa judul"}</h1>
+            <p className="text-xs text-muted-foreground">{dirty ? "Ada perubahan yang belum disimpan" : "Semua perubahan tersimpan"}</p>
+          </div>
+          <Select value={s.status} onChange={(e) => set("status", e.target.value as Session["status"])} className="w-44 py-2">
             <option value="draft">Draft</option>
             <option value="published">Dibuka (publish)</option>
             <option value="closed">Ditutup</option>
           </Select>
           <Button type="button" onClick={onSave} disabled={pending}>
-            {pending ? "Menyimpan…" : dirty ? "Simpan*" : "Simpan"}
+            {pending ? "Menyimpan…" : "Simpan"}
           </Button>
         </div>
-        {result && <div className="mt-3">{result.ok ? <Alert tone="success">Tersimpan.</Alert> : <Alert>{result.error}</Alert>}</div>}
-        <nav className="mt-3 flex gap-1 overflow-x-auto">
+        {result && !result.ok && (
+          <div className="mt-3">
+            <Alert>{result.error}</Alert>
+          </div>
+        )}
+        <nav className="mt-4 inline-flex max-w-full gap-1 overflow-x-auto rounded-xl bg-muted p-1">
           {TABS.map(([k, label]) => (
             <button
               key={k}
               type="button"
               onClick={() => setTab(k)}
-              className={cn("whitespace-nowrap rounded-lg px-3 py-1.5 text-sm", tab === k ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-200")}
+              className={cn(
+                "whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                tab === k ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
             >
               {label}
             </button>
@@ -129,15 +151,15 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
           <div className="sm:col-span-2">
             <Label required>Slug (alamat form)</Label>
             <div className="flex items-center gap-2">
-              <span className="whitespace-nowrap text-sm text-gray-500">{appUrl}/s/</span>
+              <span className="whitespace-nowrap text-sm text-muted-foreground">{appUrl}/s/</span>
               <Input value={s.slug} className="font-mono" onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} />
             </div>
             {session.status === "published" && (
               <p className="mt-1 text-xs">
-                <a href={publicUrl} target="_blank" className="text-indigo-600 hover:underline">
+                <a href={publicUrl} target="_blank" className="text-brand-600 hover:underline">
                   Buka form ↗
                 </a>
-                <button type="button" onClick={() => navigator.clipboard.writeText(publicUrl)} className="ml-3 text-gray-600 hover:underline">
+                <button type="button" onClick={() => navigator.clipboard.writeText(publicUrl)} className="ml-3 text-muted-foreground hover:underline">
                   Salin link
                 </button>
               </p>
@@ -149,8 +171,12 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
           </div>
           <div>
             <Label required>Kuota maksimal pengisi</Label>
-            <Input type="number" min={0} value={s.quota} onChange={(e) => set("quota", Number(e.target.value))} />
-            <p className="mt-1 text-xs text-gray-500">Isian yang dibatalkan tidak dihitung, slotnya kembali tersedia.</p>
+            <Input type="number" min={0} value={slotQuota ?? s.quota} disabled={slotQuota !== null} onChange={(e) => set("quota", Number(e.target.value))} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {slotQuota !== null
+                ? "Otomatis = total kuota semua jadwal (atur di tab Form → Jadwal berkuota)."
+                : "Isian yang dibatalkan tidak dihitung, slotnya kembali tersedia."}
+            </p>
           </div>
           <div className="flex items-end">
             <Toggle checked={s.one_per_email} onChange={(v) => set("one_per_email", v)} label="Satu email hanya boleh mengisi sekali" />
@@ -158,15 +184,27 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
           <div>
             <Label>Dibuka mulai (WIB)</Label>
             <Input type="datetime-local" value={s.opens_at} onChange={(e) => set("opens_at", e.target.value)} />
-            <p className="mt-1 text-xs text-gray-500">Kosongkan = langsung dibuka saat publish.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Kosongkan = langsung dibuka saat publish.</p>
           </div>
           <div>
             <Label>Ditutup pada (WIB)</Label>
             <Input type="datetime-local" value={s.closes_at} onChange={(e) => set("closes_at", e.target.value)} />
-            <p className="mt-1 text-xs text-gray-500">Kosongkan = tidak ada batas waktu (tutup saat kuota penuh).</p>
+            <p className="mt-1 text-xs text-muted-foreground">Kosongkan = tidak ada batas waktu (tutup saat kuota penuh).</p>
+          </div>
+          <div className="sm:col-span-2">
+            <Label>Catatan internal (hanya admin)</Label>
+            <Textarea
+              rows={5}
+              value={s.promo.internal_notes ?? ""}
+              placeholder={"Pendamping: EC …, admin …\nSetor list peserta: Senin, 5 Okt"}
+              onChange={(e) => set("promo", { ...s.promo, internal_notes: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Tidak pernah ditampilkan di halaman publik.</p>
           </div>
         </div>
       )}
+
+      {tab === "promo" && <PromoEditor sessionId={session.id} promo={s.promo} onChange={(p) => set("promo", p)} />}
 
       {tab === "form" && <FormBuilder fields={s.fields} onChange={(f) => set("fields", f)} />}
 
@@ -175,7 +213,7 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
           <Label>Pesan setelah form dikirim</Label>
           <Textarea rows={8} value={s.success_message} onChange={(e) => set("success_message", e.target.value)} />
           <Placeholders fields={s.fields} />
-          <p className="mt-3 text-xs text-gray-500">Kode submission selalu ditampilkan di bawah pesan ini.</p>
+          <p className="mt-3 text-xs text-muted-foreground">Kode submission selalu ditampilkan di bawah pesan ini.</p>
         </div>
       )}
 
@@ -190,14 +228,14 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
             <Label>Isi email</Label>
             <Textarea rows={10} value={s.email_body} disabled={!s.email_enabled} onChange={(e) => set("email_body", e.target.value)} />
             <Placeholders fields={s.fields} />
-            <p className="mt-2 text-xs text-gray-500">Ringkasan seluruh isian otomatis dilampirkan di bawah isi email.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Ringkasan seluruh isian otomatis dilampirkan di bawah isi email.</p>
           </div>
         </div>
       )}
 
       {tab === "akses" && (
         <div className="space-y-5">
-          <p className="text-sm text-gray-600">Pengisi bisa membuka halaman Cek Ulang dengan kode submission + email.</p>
+          <p className="text-sm text-muted-foreground">Pengisi bisa membuka halaman Cek Ulang dengan kode submission + email.</p>
           <Toggle checked={s.allow_view} onChange={(v) => set("allow_view", v)} label="Tampilkan detail isian" hint="Jika mati, pengisi hanya melihat status (terdaftar/dibatalkan)." />
           <Toggle checked={s.allow_edit} onChange={(v) => set("allow_edit", v)} label="Izinkan mengubah isian" hint="Email tidak bisa diubah karena dipakai untuk verifikasi." />
           <Toggle checked={s.allow_cancel} onChange={(v) => set("allow_cancel", v)} label="Izinkan membatalkan pendaftaran" hint="Slot kuota yang dibatalkan kembali tersedia untuk orang lain." />
@@ -209,7 +247,7 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
               disabled={!s.allow_edit && !s.allow_cancel}
               onChange={(e) => set("edit_deadline", e.target.value)}
             />
-            <p className="mt-1 text-xs text-gray-500">Kosongkan = boleh sampai sesi ditutup.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Kosongkan = boleh sampai sesi ditutup.</p>
           </div>
         </div>
       )}

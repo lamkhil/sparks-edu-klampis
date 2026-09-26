@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { countActive, getSessionById } from "@/lib/data";
-import { defaultFields, fieldsSchema } from "@/lib/form-schema";
+import { countActive, getSessionById, slotUsage } from "@/lib/data";
+import { defaultFields, fieldsSchema, fileFields, guestField, slotField, slotsTotal } from "@/lib/form-schema";
 import { sendConfirmation } from "@/lib/mailer";
+import { promoSchema } from "@/lib/promo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
 
@@ -45,8 +46,8 @@ export async function duplicateSession(id: string) {
 export async function deleteSession(id: string) {
   await requireAdmin();
   await createAdminClient().from("sessions").delete().eq("id", id);
-  revalidatePath("/admin");
-  redirect("/admin");
+  revalidatePath("/admin/sesi");
+  redirect("/admin/sesi");
 }
 
 const isoOrNull = z
@@ -77,6 +78,7 @@ const sessionSchema = z.object({
   allow_cancel: z.boolean(),
   edit_deadline: isoOrNull,
   one_per_email: z.boolean(),
+  promo: promoSchema,
 });
 
 export type SessionInput = z.input<typeof sessionSchema>;
@@ -90,9 +92,19 @@ export async function saveSession(id: string, input: SessionInput): Promise<Save
     return { ok: false, error: i.message };
   }
   const v = parsed.data;
+  // Kuota sesi mengikuti total kuota jadwal jika form memakai jadwal berkuota.
+  v.quota = slotsTotal(v.fields) ?? v.quota;
   if (v.opens_at && v.closes_at && v.opens_at >= v.closes_at) return { ok: false, error: "Waktu tutup harus setelah waktu buka" };
   const used = await countActive(id);
   if (v.quota < used) return { ok: false, error: `Kuota tidak boleh kurang dari jumlah yang sudah terisi (${used})` };
+  const sf = slotField(v.fields);
+  if (sf?.slots) {
+    const usage = await slotUsage(id);
+    for (const sl of sf.slots) {
+      const u = usage[sl.id];
+      if (u && sl.quota < u.used) return { ok: false, error: `Kuota "${sl.label}" tidak boleh kurang dari pendaftar yang sudah ada (${u.used})` };
+    }
+  }
 
   const { error } = await createAdminClient().from("sessions").update(v).eq("id", id);
   if (error) return { ok: false, error: error.code === "23505" ? "Slug sudah dipakai sesi lain" : error.message };
@@ -115,6 +127,13 @@ export async function setSubmissionStatus(id: string, status: "active" | "cancel
   if (status === "active" && sub.status !== "active") {
     const s = await getSessionById(sub.session_id);
     if (s && (await countActive(s.id)) >= s.quota) return { ok: false, error: "Kuota penuh, naikkan kuota dulu untuk memulihkan." };
+    const sl = s && sub.slot ? slotField(s.fields)?.slots?.find((x) => x.id === sub.slot) : undefined;
+    if (s && sl) {
+      const u = (await slotUsage(s.id))[sl.id] ?? { used: 0, guests: 0 };
+      if (u.used >= sl.quota) return { ok: false, error: `Jadwal "${sl.label}" sudah penuh.` };
+      if (guestField(s.fields) && sub.guest_count > 0 && u.guests + sub.guest_count > sl.guest_quota)
+        return { ok: false, error: `Kuota teman di "${sl.label}" tidak cukup untuk memulihkan pendaftaran ini.` };
+    }
   }
   await createAdminClient().from("submissions").update({ status }).eq("id", id);
   revalidatePath(`/admin/sesi/${sub.session_id}/submisi`);
@@ -132,11 +151,36 @@ export async function resendEmail(id: string) {
   return res.ok ? { ok: true } : { ok: false, error: res.error };
 }
 
+/** URL upload bertanda tangan: browser mengunggah poster langsung ke Supabase Storage. */
+export async function createPosterUpload(sessionId: string, ext: string) {
+  await requireAdmin();
+  const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+  const path = `${sessionId}/${Date.now()}.${safeExt}`;
+  const storage = createAdminClient().storage.from("posters");
+  const { data, error } = await storage.createSignedUploadUrl(path);
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const, path, token: data.token, publicUrl: storage.getPublicUrl(path).data.publicUrl };
+}
+
+export async function setPaymentStatus(id: string, status: "pending" | "paid" | "rejected") {
+  await requireAdmin();
+  const sub = await getSub(id);
+  if (!sub) return { ok: false, error: "Tidak ditemukan" };
+  await createAdminClient().from("submissions").update({ payment_status: status }).eq("id", id);
+  revalidatePath(`/admin/sesi/${sub.session_id}/submisi`);
+  return { ok: true };
+}
+
 export async function deleteSubmission(id: string) {
   await requireAdmin();
   const sub = await getSub(id);
   if (!sub) return { ok: false, error: "Tidak ditemukan" };
-  await createAdminClient().from("submissions").delete().eq("id", id);
+  const db = createAdminClient();
+  await db.from("submissions").delete().eq("id", id);
+  // Hapus juga file bukti transfer milik pendaftar ini.
+  const s = await getSessionById(sub.session_id);
+  const paths = (s ? fileFields(s.fields) : []).map((f) => sub.answers[f.key]).filter((p): p is string => typeof p === "string" && p !== "");
+  if (paths.length) await db.storage.from("payments").remove(paths);
   revalidatePath(`/admin/sesi/${sub.session_id}/submisi`);
   return { ok: true };
 }

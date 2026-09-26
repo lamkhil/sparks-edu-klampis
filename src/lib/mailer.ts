@@ -2,7 +2,7 @@ import "server-only";
 import nodemailer from "nodemailer";
 import { createAdminClient } from "./supabase/admin";
 import { escapeHtml, renderTemplate, templateVars } from "./template";
-import { formatAnswer } from "./form-schema";
+import { formatFieldAnswer } from "./form-schema";
 import type { Session, Settings, Submission } from "./types";
 
 export async function getSettings(): Promise<Settings> {
@@ -37,7 +37,7 @@ function toHtml(body: string, session: Session, sub: Submission) {
   const rows = session.fields
     .map(
       (f) =>
-        `<tr><td style="padding:6px 12px 6px 0;color:#555;vertical-align:top">${escapeHtml(f.label)}</td><td style="padding:6px 0">${escapeHtml(formatAnswer(sub.answers[f.key])) || "-"}</td></tr>`,
+        `<tr><td style="padding:6px 12px 6px 0;color:#555;vertical-align:top">${escapeHtml(f.label)}</td><td style="padding:6px 0">${escapeHtml(formatFieldAnswer(f, sub.answers[f.key])) || "-"}</td></tr>`,
     )
     .join("");
   return `<div style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111;max-width:560px">

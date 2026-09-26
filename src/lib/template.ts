@@ -1,5 +1,5 @@
 import type { FormField } from "./form-schema";
-import { formatAnswer } from "./form-schema";
+import { formatFieldAnswer } from "./form-schema";
 import type { Session, Submission } from "./types";
 
 export const BUILTIN_PLACEHOLDERS = {
@@ -22,7 +22,7 @@ export function templateVars(session: Session, sub: Pick<Submission, "code" | "e
     link_cek: `${appUrl()}/cek?kode=${encodeURIComponent(sub.code)}`,
     tanggal: new Date(sub.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "long", timeStyle: "short" }),
   };
-  for (const f of session.fields as FormField[]) vars[f.key] = formatAnswer(sub.answers[f.key]);
+  for (const f of session.fields as FormField[]) vars[f.key] = formatFieldAnswer(f, sub.answers[f.key]);
   return vars;
 }
 

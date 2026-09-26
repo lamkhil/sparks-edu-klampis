@@ -31,7 +31,7 @@ Salin `.env.example` ke `.env.local`, lalu isi dari **Project Settings → API**
 | Variabel | Keterangan |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon / publishable key |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | publishable key (atau `NEXT_PUBLIC_SUPABASE_ANON_KEY` untuk anon key lama) |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role / secret key (**rahasia**, hanya server) |
 | `APP_URL` | URL publik aplikasi, dipakai untuk link di email |
 | `APP_SECRET` | string acak panjang (`openssl rand -hex 32`) |
