@@ -4,19 +4,19 @@ import { redirect } from "next/navigation";
 import type { FormState } from "@/components/dynamic-form";
 import { grantAccess, hasAccess } from "@/lib/access";
 import { getSubmissionByCode, normalizeCode } from "@/lib/data";
-import { lockedOnEdit, readFormData, validateAnswers } from "@/lib/form-schema";
+import { lockedOnEdit, matchesContact, readFormData, validateAnswers } from "@/lib/form-schema";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canModify } from "@/lib/types";
 
-export type LookupState = { message?: string; kode?: string; email?: string } | null;
+export type LookupState = { message?: string; kode?: string; contact?: string } | null;
 
 export async function lookup(_: LookupState, fd: FormData): Promise<LookupState> {
   const kode = normalizeCode(String(fd.get("kode") ?? ""));
-  const email = String(fd.get("email") ?? "").trim().toLowerCase();
-  const found = kode.length > 3 && email ? await getSubmissionByCode(kode) : null;
-  // Pesan sama untuk kode salah maupun email salah, agar tidak bisa menebak.
-  if (!found || found.submission.email.toLowerCase() !== email)
-    return { message: "Kode atau email tidak cocok.", kode, email };
+  const contact = String(fd.get("contact") ?? "").trim();
+  const found = kode.length > 3 && contact ? await getSubmissionByCode(kode) : null;
+  // Pesan sama untuk kode salah maupun kontak salah, agar tidak bisa menebak.
+  if (!found || !matchesContact(found.session.fields, found.submission, contact))
+    return { message: "Kode atau email/No. HP tidak cocok.", kode, contact };
   await grantAccess(found.submission.code);
   redirect(`/cek/${found.submission.code}`);
 }

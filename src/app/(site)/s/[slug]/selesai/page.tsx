@@ -5,7 +5,9 @@ import { ShootingStar, Sparkle } from "@/components/brand";
 import { EventFacts } from "@/components/session-promo";
 import { Alert, Card, buttonClass } from "@/components/kit";
 import { getSessionBySlug, getSubmissionByCode } from "@/lib/data";
-import { renderTemplate, templateVars } from "@/lib/template";
+import { whatsappLink } from "@/lib/promo";
+import { paymentWhatsappText, renderTemplate, templateVars } from "@/lib/template";
+import { WhatsappButton } from "@/components/whatsapp-button";
 import { CopyCode } from "./copy-code";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +21,7 @@ export default async function DonePage({ params }: PageProps<"/s/[slug]/selesai"
   if (!found || found.session.id !== session.id) redirect(`/s/${slug}`);
   const { submission } = found;
   const message = renderTemplate(session.success_message, templateVars(session, submission));
+  const wa = submission.payment_status !== "none" ? whatsappLink(session.promo?.whatsapp, paymentWhatsappText(session, submission)) : null;
 
   return (
     <main className="mx-auto max-w-xl px-4 py-12">
@@ -33,18 +36,24 @@ export default async function DonePage({ params }: PageProps<"/s/[slug]/selesai"
           <p className="text-xs font-bold uppercase tracking-wider text-sun-700">Kode pendaftaran</p>
           <CopyCode code={submission.code} />
         </div>
+        {wa && (
+          <div className="mt-5">
+            <WhatsappButton href={wa} />
+            <p className="mt-2 text-xs text-muted-foreground">Pesan berisi kode & data pendaftaran akan terisi otomatis. Lampirkan foto bukti transfer.</p>
+          </div>
+        )}
         <div className="mt-4 text-left">
           <EventFacts promo={session.promo ?? {}} />
         </div>
-        {session.email_enabled && (
-          <div className="mt-4 text-left">
-            {submission.email_status === "sent" ? (
-              <Alert tone="success">Email konfirmasi sudah dikirim ke {submission.email}.</Alert>
-            ) : submission.email_status === "failed" ? (
-              <Alert>Email konfirmasi gagal dikirim. Simpan kode di atas baik-baik.</Alert>
-            ) : null}
-          </div>
-        )}
+        <div className="mt-4 text-left">
+          {submission.email && session.email_enabled && submission.email_status === "sent" ? (
+            <Alert tone="success">Email konfirmasi sudah dikirim ke {submission.email}.</Alert>
+          ) : (
+            <Alert tone="info">
+              <b>Simpan kode di atas</b> (screenshot halaman ini). Kode dan No. HP/email yang kamu isi dipakai untuk cek ulang pendaftaran.
+            </Alert>
+          )}
+        </div>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href={`/cek?kode=${submission.code}`} className={buttonClass("primary")}>
             Cek ulang isian

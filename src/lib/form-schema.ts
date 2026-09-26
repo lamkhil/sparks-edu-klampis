@@ -107,15 +107,36 @@ export const fieldsSchema = z
       if (fields.filter((f) => f.type === t).length > 1)
         ctx.addIssue({ code: "custom", path: [], message: `Field "${FIELD_TYPES[t]}" hanya boleh ada satu per form` });
     }
-    const email = fields.find((f) => f.type === "email");
-    if (!email || !email.required) ctx.addIssue({ code: "custom", path: [], message: "Form harus punya tepat 1 field Email yang wajib diisi" });
+    if (!contactField(fields))
+      ctx.addIssue({ code: "custom", path: [], message: "Form harus punya field Email atau No. HP yang wajib diisi (dipakai untuk cek ulang pendaftaran)" });
     if (fields.some((f) => f.type === "guests") && !fields.some((f) => f.type === "slot"))
       ctx.addIssue({ code: "custom", path: [], message: "Field \"Bawa teman\" membutuhkan field \"Jadwal berkuota\" (kuota teman diatur per jadwal)" });
   });
 
-/** Nama key field email (untuk kirim konfirmasi & verifikasi cek ulang). */
+/** Key field email, jika form punya (email bisa opsional). */
 export function emailKey(fields: FormField[]) {
-  return fields.find((f) => f.type === "email")?.key ?? "email";
+  return fields.find((f) => f.type === "email")?.key;
+}
+
+/** Field wajib yang dipakai untuk verifikasi cek ulang: email wajib, atau No. HP wajib. */
+export function contactField(fields: FormField[]) {
+  return fields.find((f) => f.type === "email" && f.required) ?? fields.find((f) => f.type === "phone" && f.required);
+}
+
+/** Samakan format nomor HP: hanya angka, awalan 62 → 0. */
+export function normalizePhone(v: string) {
+  const d = v.replace(/\D/g, "");
+  return d.startsWith("62") ? `0${d.slice(2)}` : d;
+}
+
+/** Cocokkan input cek ulang (email atau No. HP) dengan data pendaftar. */
+export function matchesContact(fields: FormField[], sub: { email: string | null; answers: Record<string, unknown> }, input: string) {
+  const v = input.trim();
+  if (!v) return false;
+  if (v.includes("@")) return !!sub.email && sub.email.toLowerCase() === v.toLowerCase();
+  const want = normalizePhone(v);
+  if (want.length < 6) return false;
+  return fields.filter((f) => f.type === "phone").some((f) => normalizePhone(String(sub.answers[f.key] ?? "")) === want);
 }
 
 export const slotField = (fields: FormField[]) => fields.find((f) => f.type === "slot");
@@ -124,7 +145,8 @@ export const fileFields = (fields: FormField[]) => fields.filter((f) => f.type =
 
 /** Field yang tidak boleh diubah pengisi setelah submit (mempengaruhi kuota / verifikasi). */
 export function lockedOnEdit(fields: FormField[]) {
-  return fields.filter((f) => ["email", "slot", "guests", "file"].includes(f.type)).map((f) => f.key);
+  const contact = contactField(fields)?.key;
+  return fields.filter((f) => ["email", "slot", "guests", "file"].includes(f.type) || f.key === contact).map((f) => f.key);
 }
 
 /** Total kuota sesi = jumlah kuota semua jadwal (jika ada field jadwal). */

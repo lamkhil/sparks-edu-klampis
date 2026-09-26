@@ -7,6 +7,7 @@ import { useState } from "react";
 import { FieldBlock } from "@/components/dynamic-form";
 import { Button, Input, Label, Select, Textarea, cn } from "@/components/kit";
 import { FIELD_TYPES, hasOptions, newSlot, slugifyKey, type FieldType, type FormField, type Slot } from "@/lib/form-schema";
+import type { SlotUsage } from "@/lib/types";
 
 function uniqueKey(base: string, fields: FormField[], selfId?: string) {
   const taken = new Set(fields.filter((f) => f.id !== selfId).map((f) => f.key));
@@ -238,14 +239,14 @@ function typeDefaults(type: FieldType, prev?: FormField): Partial<FormField> {
   };
 }
 
-function SlotsEditor({ slots, onChange }: { slots: Slot[]; onChange: (s: Slot[]) => void }) {
+export function SlotsEditor({ slots, onChange, usage, bare }: { slots: Slot[]; onChange: (s: Slot[]) => void; usage?: SlotUsage; bare?: boolean }) {
   const update = (i: number, patch: Partial<Slot>) => onChange(slots.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const total = slots.reduce((a, s) => a + (Number(s.quota) || 0), 0);
   const totalGuests = slots.reduce((a, s) => a + (Number(s.guest_quota) || 0), 0);
   return (
     <div className="sm:col-span-2">
-      <Label>Daftar jadwal & kuota</Label>
-      <div className="overflow-hidden rounded-xl border border-line">
+      {!bare && <Label>Daftar jadwal & kuota</Label>}
+      <div className="overflow-hidden rounded-xl border border-line bg-white">
         <div className="hidden grid-cols-[1fr_110px_110px_40px] gap-2 bg-cream px-3 py-2 text-xs font-semibold text-muted-foreground sm:grid">
           <span>Nama jadwal (tampil ke pendaftar)</span>
           <span>Kuota peserta</span>
@@ -255,8 +256,16 @@ function SlotsEditor({ slots, onChange }: { slots: Slot[]; onChange: (s: Slot[])
         {slots.map((s, i) => (
           <div key={s.id} className="grid grid-cols-2 gap-2 border-t border-line p-3 first:border-t-0 sm:grid-cols-[1fr_110px_110px_40px] sm:first:border-t">
             <Input className="col-span-2 sm:col-span-1" value={s.label} placeholder="LS 1-2 (13.00–14.00)" onChange={(e) => update(i, { label: e.target.value })} />
-            <Input type="number" min={0} value={s.quota} aria-label="Kuota peserta" onChange={(e) => update(i, { quota: Number(e.target.value) })} />
-            <Input type="number" min={0} value={s.guest_quota} aria-label="Kuota teman" onChange={(e) => update(i, { guest_quota: Number(e.target.value) })} />
+            <div>
+              <span className="mb-1 block text-xs text-muted-foreground sm:hidden">Kuota peserta</span>
+              <Input type="number" min={0} value={s.quota} aria-label="Kuota peserta" onChange={(e) => update(i, { quota: Number(e.target.value) })} />
+              {usage && <span className="mt-1 block text-[11px] text-muted-foreground">terisi {usage[s.id]?.used ?? 0}</span>}
+            </div>
+            <div>
+              <span className="mb-1 block text-xs text-muted-foreground sm:hidden">Kuota teman</span>
+              <Input type="number" min={0} value={s.guest_quota} aria-label="Kuota teman" onChange={(e) => update(i, { guest_quota: Number(e.target.value) })} />
+              {usage && <span className="mt-1 block text-[11px] text-muted-foreground">terisi {usage[s.id]?.guests ?? 0}</span>}
+            </div>
             <button
               type="button"
               onClick={() => slots.length > 1 && confirm(`Hapus jadwal "${s.label}"?`) && onChange(slots.filter((_, j) => j !== i))}

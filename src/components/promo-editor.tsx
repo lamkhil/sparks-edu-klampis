@@ -119,6 +119,13 @@ export function PromoEditor({ sessionId, promo, onChange }: { sessionId: string;
         </div>
 
         <div className="sm:col-span-2">
+          <Label>No. WhatsApp konfirmasi pembayaran</Label>
+          <Input value={promo.whatsapp ?? ""} placeholder="08xxxxxxxxxx" inputMode="tel" onChange={(e) => set("whatsapp", e.target.value)} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Jika diisi, halaman sukses & cek ulang menampilkan tombol &quot;Kirim bukti transfer via WhatsApp&quot; dengan pesan berisi kode & data pendaftar.
+          </p>
+        </div>
+        <div className="sm:col-span-2">
           <Label>Yang didapat (satu per baris)</Label>
           <Textarea
             rows={6}

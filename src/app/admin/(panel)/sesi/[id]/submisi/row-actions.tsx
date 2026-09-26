@@ -59,9 +59,11 @@ export function RowActions({
           <DropdownMenuItem onSelect={() => setDetail(true)}>
             <Eye /> Lihat detail
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => run(() => resendEmail(sub.id), `Email dikirim ulang ke ${sub.email}`)}>
-            <MailPlus /> Kirim ulang email
-          </DropdownMenuItem>
+          {sub.email && (
+            <DropdownMenuItem onSelect={() => run(() => resendEmail(sub.id), `Email dikirim ulang ke ${sub.email}`)}>
+              <MailPlus /> Kirim ulang email
+            </DropdownMenuItem>
+          )}
           {proofs
             .filter((p) => p.url)
             .map((p) => (
@@ -154,9 +156,11 @@ export function RowActions({
                 <BadgeCheck /> Tandai lunas
               </Button>
             )}
-            <Button variant="outline" disabled={pending} onClick={() => run(() => resendEmail(sub.id), `Email dikirim ulang ke ${sub.email}`)}>
-              <MailPlus /> Kirim ulang email
-            </Button>
+            {sub.email && (
+              <Button variant="outline" disabled={pending} onClick={() => run(() => resendEmail(sub.id), `Email dikirim ulang ke ${sub.email}`)}>
+                <MailPlus /> Kirim ulang email
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

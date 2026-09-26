@@ -19,7 +19,7 @@ export function templateVars(session: Session, sub: Pick<Submission, "code" | "e
   const vars: Record<string, string> = {
     kode: sub.code,
     judul: session.title,
-    email: sub.email,
+    email: sub.email ?? "",
     link_cek: `${appUrl()}/cek?kode=${encodeURIComponent(sub.code)}`,
     tanggal: new Date(sub.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "long", timeStyle: "short" }),
   };
@@ -34,4 +34,12 @@ export function renderTemplate(tpl: string, vars: Record<string, string>) {
 
 export function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+/** Pesan WhatsApp konfirmasi pembayaran: kode + ringkasan isian. */
+export function paymentWhatsappText(session: Session, sub: Pick<Submission, "code" | "answers">) {
+  const lines = (session.fields as FormField[])
+    .filter((f) => f.type !== "file")
+    .map((f) => `${f.label}: ${formatFieldAnswer(f, sub.answers[f.key]) || "-"}`);
+  return `Halo, saya ingin konfirmasi pembayaran ${session.title}.\n\nKode pendaftaran: ${sub.code}\n${lines.join("\n")}\n\nBerikut saya lampirkan bukti transfernya. Terima kasih.`;
 }

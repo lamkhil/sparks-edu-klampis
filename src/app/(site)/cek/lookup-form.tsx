@@ -16,10 +16,11 @@ export function LookupForm({ defaultKode }: { defaultKode?: string }) {
         <Input id="kode" name="kode" required placeholder="SK-XXXXXX" defaultValue={state?.kode ?? defaultKode} className="font-mono uppercase" />
       </div>
       <div>
-        <Label htmlFor="email" required>
-          Email yang dipakai saat mengisi
+        <Label htmlFor="contact" required>
+          Email atau No. HP
         </Label>
-        <Input id="email" name="email" type="email" required defaultValue={state?.email} autoComplete="email" />
+        <Input id="contact" name="contact" required defaultValue={state?.contact} placeholder="08xxxxxxxxxx atau email" autoComplete="email" />
+        <p className="mt-1 text-xs text-muted-foreground">Gunakan yang kamu isi saat mendaftar.</p>
       </div>
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Mencari…" : "Cek isian"}

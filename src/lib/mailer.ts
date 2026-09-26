@@ -51,7 +51,7 @@ ${escapeHtml(body).replace(/\n/g, "<br>").replace(/(https?:\/\/[^\s<]+)/g, '<a h
 /** Kirim email konfirmasi dan catat hasilnya di tabel submissions. Tidak pernah melempar error. */
 export async function sendConfirmation(session: Session, sub: Submission) {
   const db = createAdminClient();
-  if (!session.email_enabled) {
+  if (!session.email_enabled || !sub.email) {
     await db.from("submissions").update({ email_status: "skipped", email_error: null }).eq("id", sub.id);
     return { ok: true as const, skipped: true };
   }
@@ -59,7 +59,7 @@ export async function sendConfirmation(session: Session, sub: Submission) {
     const vars = templateVars(session, sub);
     const subject = renderTemplate(session.email_subject, vars);
     const body = renderTemplate(session.email_body, vars);
-    await sendMail(sub.email, subject, body, toHtml(body, session, sub));
+    await sendMail(sub.email!, subject, body, toHtml(body, session, sub));
     await db.from("submissions").update({ email_status: "sent", email_error: null }).eq("id", sub.id);
     return { ok: true as const };
   } catch (e) {

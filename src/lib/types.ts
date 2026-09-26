@@ -26,6 +26,7 @@ export interface Session {
   allow_cancel: boolean;
   edit_deadline: string | null;
   one_per_email: boolean;
+  track_payment: boolean;
   promo: Promo;
   created_at: string;
   updated_at: string;
@@ -35,7 +36,7 @@ export interface Submission {
   id: string;
   session_id: string;
   code: string;
-  email: string;
+  email: string | null;
   answers: Record<string, unknown>;
   status: "active" | "cancelled";
   slot: string | null;

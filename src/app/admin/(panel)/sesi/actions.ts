@@ -78,6 +78,7 @@ const sessionSchema = z.object({
   allow_cancel: z.boolean(),
   edit_deadline: isoOrNull,
   one_per_email: z.boolean(),
+  track_payment: z.boolean(),
   promo: promoSchema,
 });
 
@@ -144,6 +145,7 @@ export async function resendEmail(id: string) {
   await requireAdmin();
   const sub = await getSub(id);
   if (!sub) return { ok: false, error: "Tidak ditemukan" };
+  if (!sub.email) return { ok: false, error: "Pendaftar ini tidak mengisi email." };
   const s = await getSessionById(sub.session_id);
   if (!s) return { ok: false, error: "Sesi tidak ditemukan" };
   const res = await sendConfirmation({ ...s, email_enabled: true }, sub);

@@ -6,7 +6,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { SessionEditor } from "@/components/session-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getSessionById } from "@/lib/data";
+import { getSessionById, slotUsage } from "@/lib/data";
 import { appUrl } from "@/lib/template";
 import { deleteSession, duplicateSession, saveSession } from "../actions";
 
@@ -16,6 +16,7 @@ export default async function EditSessionPage({ params }: PageProps<"/admin/sesi
   const { id } = await params;
   const session = await getSessionById(id);
   if (!session) notFound();
+  const usage = await slotUsage(id);
 
   return (
     <AdminPage crumbs={[{ label: "Dashboard", href: "/admin" }, { label: "Sesi & Form", href: "/admin/sesi" }, { label: session.title }]}>
@@ -26,7 +27,7 @@ export default async function EditSessionPage({ params }: PageProps<"/admin/sesi
           </Link>
         </Button>
       </div>
-      <SessionEditor session={session} save={saveSession.bind(null, id)} appUrl={appUrl()} />
+      <SessionEditor session={session} save={saveSession.bind(null, id)} appUrl={appUrl()} usage={usage} />
 
       <Card className="mt-12 border-destructive/20">
         <CardHeader>

@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { FormBuilder } from "@/components/form-builder/form-builder";
+import { FormBuilder, SlotsEditor } from "@/components/form-builder/form-builder";
 import { PromoEditor } from "@/components/promo-editor";
 import { Alert, Button, Input, Label, Select, Textarea, Toggle, cn } from "@/components/kit";
 import type { SessionInput, SaveResult } from "@/app/admin/(panel)/sesi/actions";
-import { slotsTotal, type FormField } from "@/lib/form-schema";
-import type { Session } from "@/lib/types";
+import { newSlot, slotsTotal, type FormField, type Slot } from "@/lib/form-schema";
+import type { Session, SlotUsage } from "@/lib/types";
 
 // Semua waktu di admin memakai WIB (UTC+7) agar konsisten di server & browser.
 const WIB_MS = 7 * 3600 * 1000;
@@ -49,7 +49,17 @@ function Placeholders({ fields }: { fields: FormField[] }) {
   );
 }
 
-export function SessionEditor({ session, save, appUrl }: { session: Session; save: (input: SessionInput) => Promise<SaveResult>; appUrl: string }) {
+export function SessionEditor({
+  session,
+  save,
+  appUrl,
+  usage,
+}: {
+  session: Session;
+  save: (input: SessionInput) => Promise<SaveResult>;
+  appUrl: string;
+  usage?: SlotUsage;
+}) {
   const [tab, setTab] = useState<Tab>("detail");
   const [s, setS] = useState(() => ({
     ...session,
@@ -88,6 +98,7 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
         allow_edit: s.allow_edit,
         allow_cancel: s.allow_cancel,
         one_per_email: s.one_per_email,
+        track_payment: s.track_payment ?? false,
         promo: {
           ...s.promo,
           includes: s.promo.includes?.map((i) => i.trim()).filter(Boolean),
@@ -102,6 +113,21 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
 
   const publicUrl = `${appUrl}/s/${s.slug}`;
   const slotQuota = slotsTotal(s.fields);
+  const slotFieldObj = s.fields.find((f) => f.type === "slot");
+  const setSlots = (slots: Slot[]) => set("fields", s.fields.map((f) => (f.type === "slot" ? { ...f, slots } : f)));
+  // Ubah kuota tunggal menjadi kuota per jadwal: tambahkan pertanyaan "Pilih jadwal" setelah field email.
+  const splitIntoSlots = () => {
+    const field: FormField = {
+      id: crypto.randomUUID(),
+      key: s.fields.some((f) => f.key === "jadwal") ? "jadwal_sesi" : "jadwal",
+      type: "slot",
+      label: "Pilih jadwal",
+      required: true,
+      slots: [{ ...newSlot(1), quota: s.quota }],
+    };
+    const at = s.fields.findIndex((f) => f.type === "email") + 1;
+    set("fields", [...s.fields.slice(0, at), field, ...s.fields.slice(at)]);
+  };
 
   return (
     <div>
@@ -169,17 +195,46 @@ export function SessionEditor({ session, save, appUrl }: { session: Session; sav
             <Label>Deskripsi</Label>
             <Textarea rows={4} value={s.description} onChange={(e) => set("description", e.target.value)} />
           </div>
-          <div>
-            <Label required>Kuota maksimal pengisi</Label>
-            <Input type="number" min={0} value={slotQuota ?? s.quota} disabled={slotQuota !== null} onChange={(e) => set("quota", Number(e.target.value))} />
-            <p className="mt-1 text-xs text-muted-foreground">
-              {slotQuota !== null
-                ? "Otomatis = total kuota semua jadwal (atur di tab Form → Jadwal berkuota)."
-                : "Isian yang dibatalkan tidak dihitung, slotnya kembali tersedia."}
-            </p>
-          </div>
-          <div className="flex items-end">
-            <Toggle checked={s.one_per_email} onChange={(v) => set("one_per_email", v)} label="Satu email hanya boleh mengisi sekali" />
+          {slotFieldObj ? (
+            <div className="rounded-2xl border border-line bg-cream/60 p-4 sm:col-span-2">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <Label>Jadwal & kuota</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Pendaftar memilih salah satu jadwal di pertanyaan &quot;{slotFieldObj.label}&quot;. Kuota teman = jumlah teman non-siswa yang boleh ikut di jadwal itu.
+                  </p>
+                </div>
+                <p className="text-sm">
+                  Total kuota sesi: <b>{slotQuota}</b>
+                </p>
+              </div>
+              <SlotsEditor slots={slotFieldObj.slots ?? []} onChange={setSlots} usage={usage} bare />
+            </div>
+          ) : (
+            <div>
+              <Label required>Kuota maksimal pengisi</Label>
+              <Input type="number" min={0} value={s.quota} onChange={(e) => set("quota", Number(e.target.value))} />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Isian yang dibatalkan tidak dihitung, slotnya kembali tersedia.{" "}
+                <button type="button" onClick={splitIntoSlots} className="font-semibold text-brand-700 hover:underline">
+                  Bagi kuota per jadwal →
+                </button>
+              </p>
+            </div>
+          )}
+          <div className="flex flex-col justify-end gap-4 sm:col-span-2 sm:flex-row sm:gap-8">
+            <Toggle
+              checked={s.one_per_email}
+              onChange={(v) => set("one_per_email", v)}
+              label="Satu email hanya boleh mengisi sekali"
+              hint="Matikan jika satu orang tua boleh mendaftarkan beberapa anak."
+            />
+            <Toggle
+              checked={s.track_payment ?? false}
+              onChange={(v) => set("track_payment", v)}
+              label="Lacak status pembayaran"
+              hint="Pendaftar baru berstatus Menunggu; admin menandai Lunas setelah konfirmasi."
+            />
           </div>
           <div>
             <Label>Dibuka mulai (WIB)</Label>

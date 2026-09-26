@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { fmtDate } from "@/lib/format";
 import { fmtEventDate } from "@/lib/promo";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { FormField } from "@/lib/form-schema";
 import type { Session, Submission } from "@/lib/types";
 import { createSession } from "./sesi/actions";
 
@@ -19,7 +20,7 @@ export default async function Dashboard() {
   const [{ data: sData }, { data: stats }, { data: recentData }, { count: failed }] = await Promise.all([
     db.from("sessions").select("*").order("created_at", { ascending: false }),
     db.from("session_stats").select("*"),
-    db.from("submissions").select("*, session:sessions(title)").eq("status", "active").order("created_at", { ascending: false }).limit(8),
+    db.from("submissions").select("*, session:sessions(title, fields)").eq("status", "active").order("created_at", { ascending: false }).limit(8),
     db.from("submissions").select("id", { count: "exact", head: true }).eq("email_status", "failed").eq("status", "active"),
   ]);
   const sessions = (sData ?? []) as Session[];
@@ -27,7 +28,12 @@ export default async function Dashboard() {
   const published = sessions.filter((s) => s.status === "published");
   const totalActive = [...used.values()].reduce((a, b) => a + b, 0);
   const remaining = published.reduce((a, s) => a + Math.max(0, s.quota - (used.get(s.id) ?? 0)), 0);
-  const recent = (recentData ?? []) as (Submission & { session: { title: string } | null })[];
+  const recent = (recentData ?? []) as (Submission & { session: { title: string; fields: FormField[] } | null })[];
+  // Nama pendaftar = jawaban teks singkat pertama (mis. "Nama lengkap siswa").
+  const nameOf = (r: (typeof recent)[number]) => {
+    const f = r.session?.fields.find((x) => x.type === "short_text");
+    return (f && String(r.answers[f.key] ?? "")) || r.email || r.code;
+  };
 
   return (
     <AdminPage crumbs={[{ label: "Dashboard" }]}>
@@ -98,7 +104,7 @@ export default async function Dashboard() {
               {recent.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{r.email}</p>
+                    <p className="truncate text-sm font-medium">{nameOf(r)}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       {r.session?.title} · {fmtDate(r.created_at)}
                     </p>

@@ -46,12 +46,13 @@ export async function submitForm(slug: string, prev: FormState, fd: FormData): P
   const v = validateAnswers(session.fields, raw, proofPrefix(session.id));
   if (!v.ok) return { errors: v.errors, message: "Periksa kembali isian yang ditandai.", values: raw, nonce };
 
-  const email = String(v.data[emailKey(session.fields)]).toLowerCase();
+  const ek = emailKey(session.fields);
+  const email = ek ? String(v.data[ek] ?? "").trim().toLowerCase() || null : null;
   const sf = slotField(session.fields);
   const gf = guestField(session.fields);
   const slot = sf ? String(v.data[sf.key]) : null;
   const guests = gf ? (v.data[gf.key] as unknown[]).length : 0;
-  const hasProof = fileFields(session.fields).length > 0;
+  const trackPayment = session.track_payment || fileFields(session.fields).length > 0;
 
   const db = createAdminClient();
   const { data, error } = await db.rpc("submit_form", {
@@ -60,7 +61,7 @@ export async function submitForm(slug: string, prev: FormState, fd: FormData): P
     p_answers: v.data,
     p_slot: slot,
     p_guests: guests,
-    p_payment_status: hasProof ? "pending" : "none",
+    p_payment_status: trackPayment ? "pending" : "none",
   });
   if (error) {
     const code = Object.keys(ERRORS).find((k) => error.message.includes(k));

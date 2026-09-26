@@ -35,13 +35,13 @@ export async function GET(_: Request, ctx: RouteContext<"/admin/sesi/[id]/export
   }
 
   const cols = session.fields.filter((f) => f.type !== "slot");
-  const header = ["Kode", "Status", "Waktu daftar (WIB)", ...(sf ? ["Jadwal", "Jumlah teman"] : []), ...(files.length ? ["Pembayaran"] : []), "Email konfirmasi", ...cols.map((f) => f.label)];
+  const header = ["Kode", "Status", "Waktu daftar (WIB)", ...(sf ? ["Jadwal", "Jumlah teman"] : []), ...(session.track_payment || files.length ? ["Pembayaran"] : []), "Email konfirmasi", ...cols.map((f) => f.label)];
   const rows = subs.map((s) => [
     s.code,
     STATUS[s.status],
     new Date(s.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
     ...(sf ? [formatFieldAnswer(sf, s.slot), String(s.guest_count)] : []),
-    ...(files.length ? [PAY[s.payment_status]] : []),
+    ...(session.track_payment || files.length ? [PAY[s.payment_status]] : []),
     s.email_status,
     ...cols.map((f) => (f.type === "file" ? (urls.get(String(s.answers[f.key] ?? "")) ?? "") : formatFieldAnswer(f, s.answers[f.key]))),
   ]);

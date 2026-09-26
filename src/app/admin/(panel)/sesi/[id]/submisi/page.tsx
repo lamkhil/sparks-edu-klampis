@@ -45,7 +45,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
   const sf = slotField(session.fields);
   const gf = guestField(session.fields);
   const files = fileFields(session.fields);
-  const hasPayment = files.length > 0;
+  const hasPayment = session.track_payment || files.length > 0;
 
   const db = createAdminClient();
   let query = db.from("submissions").select("*").eq("session_id", id).order("created_at", { ascending: true });
@@ -251,7 +251,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
                   </TableCell>
                 )}
                 <TableCell className="hidden whitespace-nowrap text-sm xl:table-cell">{fmtDate(sub.created_at)}</TableCell>
-                <TableCell className="hidden lg:table-cell" title={sub.email_error ?? sub.email}>
+                <TableCell className="hidden lg:table-cell" title={sub.email_error ?? sub.email ?? "Tanpa email"}>
                   <StatusBadge status={sub.email_status} />
                 </TableCell>
                 <TableCell className="pr-4 text-right">
