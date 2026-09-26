@@ -22,6 +22,7 @@ export const BUILTIN_PLACEHOLDERS = {
   tanggal_acara: "Tanggal acara",
   jam_acara: "Jam acara",
   lokasi: "Lokasi acara",
+  link_wa: "Link WhatsApp konfirmasi (ke SA terpilih / contact center)",
 } as const;
 
 type SubLike = Pick<Submission, "code" | "email" | "answers" | "created_at"> & { guest_count?: number; amount?: number | null };
@@ -50,6 +51,10 @@ export function templateVars(session: Session, sub: SubLike) {
     lokasi: [promo.location_name, promo.location_address].filter(Boolean).join(", "),
   };
   for (const f of session.fields as FormField[]) vars[f.key] = formatFieldAnswer(f, sub.answers[f.key]);
+  // Link WA konfirmasi: nomor opsi yang dipilih (mis. Student Advisor), atau contact center.
+  const waText = stripCopyMarks(renderTemplate(promo.wa_template?.trim() || DEFAULT_WA_TEMPLATE, vars));
+  const optionWa = (session.fields as FormField[]).map((f) => f.option_wa?.[String(sub.answers[f.key] ?? "")]).find(Boolean);
+  vars.link_wa = whatsappLink(optionWa || promo.whatsapp, waText) ?? "";
   return vars;
 }
 
@@ -118,7 +123,9 @@ Transfer ke:
 {{bank}} {{no_rekening}}
 a.n. {{atas_nama}}
 
-Mohon kirim bukti transfer setelah membayar. Terima kasih.`,
+Mohon kirim bukti transfer setelah membayar. Cek status pendaftaran: {{link_cek}}
+
+Terima kasih.`,
   },
   {
     id: "hadir",
@@ -131,7 +138,9 @@ Jam: {{jam_acara}}
 Lokasi: {{lokasi}}
 Kode pendaftaran: {{kode}}
 
-Mohon datang 15 menit lebih awal. Terima kasih.`,
+Mohon datang 15 menit lebih awal. Detail pendaftaran: {{link_cek}}
+
+Terima kasih.`,
   },
 ];
 

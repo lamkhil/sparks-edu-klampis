@@ -1,4 +1,4 @@
-import { SUPABASE_PUBLIC_KEY, SUPABASE_URL } from "@/lib/env";
+import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, appUrl } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -30,5 +30,5 @@ export async function GET() {
   } catch (e) {
     db = `exception: ${e instanceof Error ? e.message : String(e)}`;
   }
-  return Response.json({ env, supabaseUrlValid: urlValid, publicKeyPresent: Boolean(SUPABASE_PUBLIC_KEY), db });
+  return Response.json({ env, appUrl: appUrl(), supabaseUrlValid: urlValid, publicKeyPresent: Boolean(SUPABASE_PUBLIC_KEY), db });
 }
