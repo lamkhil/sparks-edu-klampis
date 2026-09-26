@@ -1,16 +1,13 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { appSecret } from "./env";
 
 // Cookie bertanda tangan yang membuktikan pengisi sudah memasukkan kode + email yang cocok.
 const COOKIE = "cek_access";
 const MAX_AGE = 60 * 60; // 1 jam
 
-function secret() {
-  const s = process.env.APP_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!s) throw new Error("APP_SECRET belum diset");
-  return s;
-}
+const secret = appSecret;
 
 function sign(payload: string) {
   return createHmac("sha256", secret()).update(payload).digest("base64url");

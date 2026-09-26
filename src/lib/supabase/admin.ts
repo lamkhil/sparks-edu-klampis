@@ -1,9 +1,10 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_URL, supabaseServiceKey } from "@/lib/env";
 
 /** Client service-role: melewati RLS. Hanya dipakai di server. */
 export function createAdminClient() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return createClient(SUPABASE_URL, supabaseServiceKey(), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

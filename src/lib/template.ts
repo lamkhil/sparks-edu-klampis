@@ -1,6 +1,9 @@
+import { appUrl } from "./env";
 import type { FormField } from "./form-schema";
 import { formatFieldAnswer } from "./form-schema";
 import type { Session, Submission } from "./types";
+
+export { appUrl };
 
 export const BUILTIN_PLACEHOLDERS = {
   kode: "Kode submission",
@@ -10,9 +13,7 @@ export const BUILTIN_PLACEHOLDERS = {
   tanggal: "Waktu submit",
 } as const;
 
-export function appUrl() {
-  return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
-}
+
 
 export function templateVars(session: Session, sub: Pick<Submission, "code" | "email" | "answers" | "created_at">) {
   const vars: Record<string, string> = {

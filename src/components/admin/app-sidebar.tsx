@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, ExternalLink, LayoutDashboard, LogOut, Mail, Search, Sparkles } from "lucide-react";
+import { ChevronsUpDown, ExternalLink, KeyRound, LayoutDashboard, LogOut, Mail, Search, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/admin/actions";
@@ -25,6 +25,7 @@ const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/sesi", label: "Sesi & Form", icon: Sparkles },
   { href: "/admin/pengaturan", label: "Pengaturan SMTP", icon: Mail },
+  { href: "/admin/pengguna", label: "Admin", icon: ShieldCheck },
 ];
 
 export function AppSidebar({ email }: { email: string }) {
@@ -123,6 +124,12 @@ export function AppSidebar({ email }: { email: string }) {
               <DropdownMenuContent side="top" align="start" className="w-(--radix-dropdown-menu-trigger-width) min-w-56">
                 <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/admin/akun">
+                    <KeyRound />
+                    Ganti password
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => logout()}>
                   <LogOut />
                   Keluar
