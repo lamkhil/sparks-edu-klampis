@@ -1,5 +1,5 @@
-import { HomeSkeleton } from "@/components/skeletons";
+import { StarLoader } from "@/components/star-loader";
 
 export default function Loading() {
-  return <HomeSkeleton />;
+  return <StarLoader label="Menyiapkan sesi…" />;
 }

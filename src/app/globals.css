@@ -117,7 +117,37 @@
   animation: star-orbit 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 
+/* ---------- Loader bintang Sparks ---------- */
+@keyframes star-float {
+  0%, 100% { transform: translate(0, 0) rotate(-8deg) scale(1); }
+  50% { transform: translate(3px, -6px) rotate(10deg) scale(1.06); }
+}
+@keyframes trail-draw {
+  0% { stroke-dashoffset: 40; opacity: 0; }
+  35% { opacity: 1; }
+  70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -40; opacity: 0; }
+}
+@keyframes glow-breathe {
+  0%, 100% { transform: scale(0.85); opacity: 0.45; }
+  50% { transform: scale(1.15); opacity: 0.9; }
+}
+@keyframes sparkle-blink {
+  0%, 100% { transform: scale(0) rotate(0deg); opacity: 0; }
+  50% { transform: scale(1) rotate(90deg); opacity: 1; }
+}
+@keyframes loader-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.star-loader { animation: loader-fade 0.4s ease both; animation-delay: 120ms; }
+.star-loader__star { transform-origin: 44px 20px; animation: star-float 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.star-loader__trail { stroke-dasharray: 40; animation: trail-draw 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+.star-loader__glow { animation: glow-breathe 2.4s ease-in-out infinite; }
+.star-loader__sparkle { animation: sparkle-blink 1.8s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
+  .star-loader__star, .star-loader__trail, .star-loader__glow, .star-loader__sparkle { animation: none; opacity: 1; }
   .animate-twinkle,
   .animate-page-enter,
   .animate-rise,

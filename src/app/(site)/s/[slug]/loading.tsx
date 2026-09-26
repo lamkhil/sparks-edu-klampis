@@ -1,5 +1,5 @@
-import { SessionSkeleton } from "@/components/skeletons";
+import { StarLoader } from "@/components/star-loader";
 
 export default function Loading() {
-  return <SessionSkeleton />;
+  return <StarLoader label="Memuat formulir…" />;
 }

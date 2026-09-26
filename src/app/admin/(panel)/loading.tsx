@@ -1,5 +1,5 @@
-import { AdminSkeleton } from "@/components/skeletons";
+import { StarLoader } from "@/components/star-loader";
 
 export default function Loading() {
-  return <AdminSkeleton />;
+  return <StarLoader label="Memuat…" compact />;
 }

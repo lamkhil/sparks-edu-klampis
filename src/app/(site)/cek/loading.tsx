@@ -1,5 +1,5 @@
-import { CardSkeleton } from "@/components/skeletons";
+import { StarLoader } from "@/components/star-loader";
 
 export default function Loading() {
-  return <CardSkeleton label="Memuat pendaftaran…" />;
+  return <StarLoader label="Memuat pendaftaran…" />;
 }
