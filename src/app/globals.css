@@ -69,8 +69,60 @@
 @utility animate-twinkle {
   animation: twinkle 3.2s ease-in-out infinite;
 }
+/* ---------- Loading & transisi ---------- */
+
+/* Kilau berjalan di atas blok skeleton */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: color-mix(in oklab, var(--color-line) 70%, white);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75) 45%, rgb(255 245 204 / 0.6) 55%, transparent);
+    animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+/* Halaman masuk: naik sedikit + memudar */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@utility animate-page-enter {
+  animation: page-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Muncul bertahap untuk anak-anak skeleton */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+@utility animate-rise {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Bintang loading: berputar pelan sambil berdenyut */
+@keyframes star-orbit {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(0.86); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+@utility animate-star-orbit {
+  animation: star-orbit 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-twinkle { animation: none; }
+  .animate-twinkle,
+  .animate-page-enter,
+  .animate-rise,
+  .animate-star-orbit { animation: none; }
+  .shimmer::after { animation: none; }
 }
 @theme inline {
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import { Suspense } from "react";
+import { RouteProgress } from "@/components/route-progress";
 import { getSite } from "@/lib/site-data";
 
 const poppins = Poppins({ variable: "--font-poppins", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -18,7 +20,12 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="id">
-      <body className={`${poppins.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${poppins.variable} font-sans antialiased`}>
+        <Suspense>
+          <RouteProgress />
+        </Suspense>
+        {children}
+      </body>
     </html>
   );
 }
