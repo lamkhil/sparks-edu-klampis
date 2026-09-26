@@ -7,7 +7,8 @@ import { requireAdmin } from "@/lib/auth";
 import { countActive, getSessionById, slotUsage } from "@/lib/data";
 import { defaultFields, fieldsSchema, fileFields, guestField, slotField, slotsTotal } from "@/lib/form-schema";
 import { sendConfirmation, sendMail } from "@/lib/mailer";
-import { DEFAULT_REMINDERS, escapeHtml, renderTemplate, stripCopyMarks, templateVars } from "@/lib/template";
+import { DEFAULT_REMINDERS, escapeHtml, renderTemplate, stripCopyMarks } from "@/lib/template";
+import { fullTemplateVars } from "@/lib/template-server";
 import { promoSchema } from "@/lib/promo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
@@ -210,7 +211,7 @@ export async function sendReminderEmails(sessionId: string, reminderId: string, 
   const failed: string[] = [];
   for (const sub of (data ?? []) as Submission[]) {
     if (!sub.email) continue;
-    const vars = templateVars(session, sub);
+    const vars = fullTemplateVars(session, sub);
     const text = stripCopyMarks(renderTemplate(reminder.text, vars));
     const subject = stripCopyMarks(renderTemplate(reminder.email_subject || reminder.name, vars));
     try {

@@ -5,7 +5,8 @@ import { ShootingStar, Sparkle } from "@/components/brand";
 import { EventFacts } from "@/components/session-promo";
 import { Alert, Card, buttonClass } from "@/components/kit";
 import { getSessionBySlug, getSubmissionByCode } from "@/lib/data";
-import { renderTemplate, splitCopyMarks, templateVars } from "@/lib/template";
+import { renderTemplate, splitCopyMarks } from "@/lib/template";
+import { fullTemplateVars } from "@/lib/template-server";
 import { RichMessage } from "@/components/copy-text";
 import { PaymentCard } from "@/components/payment-card";
 import { CopyCode } from "./copy-code";
@@ -20,7 +21,7 @@ export default async function DonePage({ params }: PageProps<"/s/[slug]/selesai"
   const found = code ? await getSubmissionByCode(code) : null;
   if (!found || found.session.id !== session.id) redirect(`/s/${slug}`);
   const { submission } = found;
-  const message = renderTemplate(session.success_message, templateVars(session, submission));
+  const message = renderTemplate(session.success_message, fullTemplateVars(session, submission));
 
   return (
     <main className="mx-auto max-w-xl px-4 py-12">

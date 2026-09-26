@@ -27,7 +27,8 @@ export const BUILTIN_PLACEHOLDERS = {
 
 type SubLike = Pick<Submission, "code" | "email" | "answers" | "created_at"> & { guest_count?: number; amount?: number | null };
 
-export function templateVars(session: Session, sub: SubLike) {
+/** `extra` menimpa nilai bawaan (mis. link_cek pribadi yang dibuat di server). */
+export function templateVars(session: Session, sub: SubLike, extra: Record<string, string> = {}) {
   const promo = session.promo ?? {};
   const guests = sub.guest_count ?? 0;
   const amount = sub.amount ?? computeAmount(promo, guests);
@@ -51,6 +52,7 @@ export function templateVars(session: Session, sub: SubLike) {
     lokasi: [promo.location_name, promo.location_address].filter(Boolean).join(", "),
   };
   for (const f of session.fields as FormField[]) vars[f.key] = formatFieldAnswer(f, sub.answers[f.key]);
+  Object.assign(vars, extra);
   // Link WA konfirmasi: nomor opsi yang dipilih (mis. Student Advisor), atau contact center.
   const waText = stripCopyMarks(renderTemplate(promo.wa_template?.trim() || DEFAULT_WA_TEMPLATE, vars));
   const optionWa = (session.fields as FormField[]).map((f) => f.option_wa?.[String(sub.answers[f.key] ?? "")]).find(Boolean);
@@ -77,27 +79,6 @@ export function splitCopyMarks(s: string) {
 
 export function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
-
-/** Pesan WhatsApp konfirmasi pembayaran dari template sesi. */
-export function paymentWhatsappText(session: Session, sub: SubLike) {
-  const tpl = session.promo?.wa_template?.trim() || DEFAULT_WA_TEMPLATE;
-  return stripCopyMarks(renderTemplate(tpl, templateVars(session, sub)));
-}
-
-/** Tujuan WhatsApp konfirmasi: nomor dari opsi yang dipilih (mis. Student Advisor), lalu contact center. */
-export function whatsappTargets(session: Session, sub: SubLike) {
-  const text = paymentWhatsappText(session, sub);
-  const out: { label: string; href: string }[] = [];
-  for (const f of session.fields as FormField[]) {
-    if (!f.option_wa) continue;
-    const choice = String(sub.answers[f.key] ?? "");
-    const href = whatsappLink(f.option_wa[choice], text);
-    if (href) out.push({ label: `Konfirmasi ke ${choice} via WhatsApp`, href });
-  }
-  const cc = whatsappLink(session.promo?.whatsapp, text);
-  if (cc) out.push({ label: session.promo?.whatsapp_label?.trim() || "Hubungi Contact Center via WhatsApp", href: cc });
-  return out;
 }
 
 /** Template pengingat yang bisa diatur per sesi (tab Pengingat). */

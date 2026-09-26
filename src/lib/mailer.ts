@@ -1,7 +1,8 @@
 import "server-only";
 import nodemailer from "nodemailer";
 import { createAdminClient } from "./supabase/admin";
-import { escapeHtml, renderTemplate, stripCopyMarks, templateVars } from "./template";
+import { escapeHtml, renderTemplate, stripCopyMarks } from "./template";
+import { fullTemplateVars } from "./template-server";
 import { formatFieldAnswer } from "./form-schema";
 import type { Session, Settings, Submission } from "./types";
 
@@ -56,7 +57,7 @@ export async function sendConfirmation(session: Session, sub: Submission) {
     return { ok: true as const, skipped: true };
   }
   try {
-    const vars = templateVars(session, sub);
+    const vars = fullTemplateVars(session, sub);
     const subject = stripCopyMarks(renderTemplate(session.email_subject, vars));
     const body = stripCopyMarks(renderTemplate(session.email_body, vars));
     await sendMail(sub.email!, subject, body, toHtml(body, session, sub));

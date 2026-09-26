@@ -17,7 +17,8 @@ import type { Submission } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { RowActions } from "./row-actions";
 import { ReminderDialog, type ReminderRecipient } from "./reminder-dialog";
-import { DEFAULT_REMINDERS, registrantPhone, templateVars } from "@/lib/template";
+import { DEFAULT_REMINDERS, registrantPhone } from "@/lib/template";
+import { fullTemplateVars } from "@/lib/template-server";
 import { formatRupiah } from "@/lib/promo";
 
 export const metadata = { title: "Pendaftar" };
@@ -89,7 +90,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
     payment: s.payment_status,
     phone: registrantPhone(session.fields, s.answers),
     email: s.email,
-    vars: templateVars(session, s),
+    vars: fullTemplateVars(session, s),
   }));
 
   const shown = session.fields.filter((f) => !["email", "slot", "guests", "file"].includes(f.type)).slice(0, 2);

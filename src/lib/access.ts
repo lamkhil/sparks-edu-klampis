@@ -36,3 +36,15 @@ export async function hasAccess(code: string) {
   const got = Buffer.from(sig);
   return expected.length === got.length && timingSafeEqual(expected, got);
 }
+
+/** Token link pribadi untuk membuka isian pendaftar langsung (tanpa mengetik No. HP). */
+export function viewToken(code: string) {
+  return sign(`view:${code}`).slice(0, 22);
+}
+
+export function verifyViewToken(code: string, token: string | null) {
+  if (!token) return false;
+  const expected = Buffer.from(viewToken(code));
+  const got = Buffer.from(token);
+  return expected.length === got.length && timingSafeEqual(expected, got);
+}

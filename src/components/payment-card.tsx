@@ -1,5 +1,5 @@
 import { amountBreakdown, formatRupiah, priceSummary } from "@/lib/promo";
-import { whatsappTargets } from "@/lib/template";
+import { whatsappTargets } from "@/lib/template-server";
 import type { Session, Submission } from "@/lib/types";
 import { CopyText } from "./copy-text";
 import { WhatsappButton } from "./whatsapp-button";
