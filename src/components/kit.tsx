@@ -34,8 +34,17 @@ export function Textarea({ className, ...p }: TextareaHTMLAttributes<HTMLTextAre
   return <textarea {...p} className={cn(inputCls, className)} />;
 }
 
-export function Select({ className, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...p} className={cn(inputCls, className)} />;
+const chevron =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23008560' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")";
+
+export function Select({ className, style, ...p }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...p}
+      style={{ backgroundImage: chevron, backgroundPosition: "right 0.85rem center", backgroundSize: "1.1rem", backgroundRepeat: "no-repeat", ...style }}
+      className={cn(inputCls, "cursor-pointer appearance-none pr-10", className)}
+    />
+  );
 }
 
 export function Label({ children, htmlFor, required }: { children: ReactNode; htmlFor?: string; required?: boolean }) {

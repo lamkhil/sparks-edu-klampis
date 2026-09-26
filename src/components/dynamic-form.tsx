@@ -5,7 +5,8 @@ import { guestSubFields, type FieldErrors, type FormField, type Guest } from "@/
 import type { SlotUsage } from "@/lib/types";
 import { priceSummary, type Promo } from "@/lib/promo";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
-import { Alert, Button, Input, Label, Select, Textarea, cn } from "./kit";
+import { Alert, Button, Input, Label, Textarea, cn } from "./kit";
+import { PrettySelect } from "./pretty-select";
 
 export type FormState = {
   errors?: FieldErrors;
@@ -256,16 +257,7 @@ export function FieldInput({ field, value, disabled }: { field: FormField; value
     case "date":
       return <Input {...common} type="date" />;
     case "select":
-      return (
-        <Select {...common}>
-          <option value="">{field.placeholder || "— Pilih —"}</option>
-          {field.options?.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
-        </Select>
-      );
+      return <PrettySelect id={id} name={name} options={field.options ?? []} defaultValue={str} placeholder={field.placeholder || "— Pilih —"} disabled={disabled} />;
     case "radio":
       return (
         <div className="space-y-2">
