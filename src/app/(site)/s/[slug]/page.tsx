@@ -11,6 +11,7 @@ import {
   PromoDeal,
 } from "@/components/session-promo";
 import { Alert, Badge, QuotaBar } from "@/components/kit";
+import { OpenCountdown } from "@/components/open-countdown";
 import { priceLabel } from "@/lib/promo";
 import { countActive, getSessionBySlug, slotUsage } from "@/lib/data";
 import { fmtDate } from "@/lib/format";
@@ -193,6 +194,14 @@ export default async function FormPage({ params }: PageProps<"/s/[slug]">) {
                   pricing={promo.fee ? { fee: promo.fee, group_prices: promo.group_prices, price_unit: promo.price_unit } : null}
                   submitLabel="Kirim pendaftaran"
                 />
+              ) : av.reason === "not_open" && session.opens_at ? (
+                <div className="space-y-3">
+                  <OpenCountdown opensAt={session.opens_at} />
+                  <p className="text-center text-xs text-muted-foreground">
+                    Formulir akan terbuka otomatis pada{" "}
+                    {fmtDate(session.opens_at)}.
+                  </p>
+                </div>
               ) : (
                 <Alert>{REASONS[av.reason]}</Alert>
               )}
