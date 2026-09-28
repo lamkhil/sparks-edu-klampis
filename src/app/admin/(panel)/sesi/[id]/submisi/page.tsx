@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { countActive, getSessionById, slotUsage } from "@/lib/data";
-import { fileFields, formatFieldAnswer, guestField, slotField } from "@/lib/form-schema";
+import { fileFields, formatFieldAnswer, guestField, guestSlotsBreakdown, slotField } from "@/lib/form-schema";
 import { fmtDate } from "@/lib/format";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
@@ -272,7 +272,11 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
                   </TableCell>
                 ))}
                 {sf && <TableCell className="max-w-44 truncate">{formatFieldAnswer(sf, sub.slot)}</TableCell>}
-                {gf && <TableCell className="text-center tabular-nums">{sub.guest_count || "—"}</TableCell>}
+                {gf && (
+                  <TableCell className="text-center tabular-nums" title={guestSlotsBreakdown(sub.guest_slots, sf?.slots)}>
+                    {sub.guest_count || "—"}
+                  </TableCell>
+                )}
                 {hasPayment && (
                   <TableCell>
                     <StatusBadge status={sub.payment_status === "none" ? "pending" : sub.payment_status} kind="payment" />
@@ -287,6 +291,7 @@ export default async function SubmissionsPage({ params, searchParams }: PageProp
                   <RowActions
                     sub={sub}
                     fields={session.fields}
+                    slots={sf?.slots}
                     hasPayment={hasPayment}
                     proofs={files.map((f) => ({ label: f.label, url: proofUrls.get(String(sub.answers[f.key] ?? "")) ?? null }))}
                   />

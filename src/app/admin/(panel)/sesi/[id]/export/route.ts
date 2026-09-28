@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth";
 import { getSessionById } from "@/lib/data";
-import { fileFields, formatFieldAnswer, slotField } from "@/lib/form-schema";
+import { fileFields, formatFieldAnswer, guestField, guestSlotsBreakdown, slotField } from "@/lib/form-schema";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Submission } from "@/lib/types";
 
@@ -21,6 +21,7 @@ export async function GET(_: Request, ctx: RouteContext<"/admin/sesi/[id]/export
   const db = createAdminClient();
   const { data } = await db.from("submissions").select("*").eq("session_id", id).order("created_at");
   const sf = slotField(session.fields);
+  const gf = guestField(session.fields);
   const files = fileFields(session.fields);
   const order = new Map((sf?.slots ?? []).map((s, i) => [s.id, i]));
   // Urutkan per jadwal agar mudah disetor per sesi.
@@ -35,15 +36,26 @@ export async function GET(_: Request, ctx: RouteContext<"/admin/sesi/[id]/export
   }
 
   const cols = session.fields.filter((f) => f.type !== "slot");
-  const header = ["Kode", "Status", "Waktu daftar (WIB)", ...(sf ? ["Jadwal", "Jumlah teman"] : []), ...(session.track_payment || files.length ? ["Pembayaran"] : []), "Total (Rp)", "Email konfirmasi", ...cols.map((f) => f.label)];
+  const header = [
+    "Kode",
+    "Status",
+    "Waktu daftar (WIB)",
+    ...(sf ? ["Jadwal", "Jumlah teman"] : []),
+    ...(gf ? ["Jadwal teman"] : []),
+    ...(session.track_payment || files.length ? ["Pembayaran"] : []),
+    "Total (Rp)",
+    "Email konfirmasi",
+    ...cols.map((f) => f.label),
+  ];
   const rows = subs.map((s) => [
     s.code,
     STATUS[s.status],
     new Date(s.created_at).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
     ...(sf ? [formatFieldAnswer(sf, s.slot), String(s.guest_count)] : []),
+    ...(gf ? [guestSlotsBreakdown(s.guest_slots, sf?.slots)] : []),
     ...(session.track_payment || files.length ? [PAY[s.payment_status]] : []), s.amount ?? "",
     s.email_status,
-    ...cols.map((f) => (f.type === "file" ? (urls.get(String(s.answers[f.key] ?? "")) ?? "") : formatFieldAnswer(f, s.answers[f.key]))),
+    ...cols.map((f) => (f.type === "file" ? (urls.get(String(s.answers[f.key] ?? "")) ?? "") : formatFieldAnswer(f, s.answers[f.key], sf?.slots))),
   ]);
   const csv = "﻿" + [header, ...rows].map((r) => r.map((c) => csvCell(String(c))).join(",")).join("\r\n");
 

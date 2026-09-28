@@ -1,10 +1,11 @@
 "use client";
 
 import { createContext, useActionState, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { guestSubFields, type FieldErrors, type FormField, type Guest } from "@/lib/form-schema";
+import { GUEST_SLOT_KEY, guestSubFields, type FieldErrors, type FormField, type Guest } from "@/lib/form-schema";
 import type { SlotUsage } from "@/lib/types";
 import { priceSummary, type Promo } from "@/lib/promo";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Alert, Button, Input, Label, Textarea, cn } from "./kit";
 import { PrettySelect } from "./pretty-select";
 
@@ -91,25 +92,48 @@ function GuestsInput({ field, value, disabled }: { field: FormField; value?: unk
   const [bring, setBring] = useState(initial.length > 0);
   const [count, setCount] = useState(Math.max(1, initial.length));
   const max = field.max_guests ?? 1;
-  const r = ctx?.slot ? remaining(ctx.slotsOf, ctx.usage, ctx.slot) : null;
-  const allowed = r ? Math.min(max, r.guests) : max;
-  const blocked = r !== null && r.guests <= 0;
+  const usage = ctx?.usage ?? {};
+  const slots = ctx?.slotsOf?.slots ?? [];
+  const remainingGuests = (id: string) => remaining(ctx?.slotsOf, usage, id)?.guests ?? 0;
+  const totalGuestRoom = slots.reduce((a, s) => a + remainingGuests(s.id), 0);
+  const blocked = slots.length > 0 && totalGuestRoom <= 0;
+  const allowed = blocked ? 0 : Math.min(max, totalGuestRoom);
   const name = `f_${field.key}`;
   const effective = bring && !blocked ? Math.min(count, allowed) : 0;
   useEffect(() => ctx?.setGuests(effective), [effective, ctx]);
   const subs = guestSubFields(field);
+  const defaultSlot = ctx?.slot || slots[0]?.id || "";
+  const [rowSlots, setRowSlots] = useState<string[]>(() =>
+    Array.from({ length: Math.max(1, initial.length) }, (_, i) => initial[i]?.[GUEST_SLOT_KEY] || defaultSlot),
+  );
+  const setRowSlot = (i: number, v: string) =>
+    setRowSlots((prev) => {
+      const next = [...prev];
+      next[i] = v;
+      return next;
+    });
 
   if (disabled) {
     return (
       <p className="rounded-xl bg-cream px-3.5 py-2.5 text-sm">
-        {initial.length ? initial.map((g) => Object.values(g).filter(Boolean).join(" · ")).join(", ") : "Tidak membawa teman"}
+        {initial.length
+          ? initial
+              .map((g) => {
+                const base = Object.entries(g)
+                  .filter(([k, v]) => k !== GUEST_SLOT_KEY && v)
+                  .map(([, v]) => v)
+                  .join(" · ");
+                const slotLabel = slots.find((s) => s.id === g[GUEST_SLOT_KEY])?.label;
+                return slotLabel ? `${base} (${slotLabel})` : base;
+              })
+              .join(", ")
+          : "Tidak membawa teman"}
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
-      {!ctx?.slot && <p className="text-xs text-muted-foreground">Pilih jadwal terlebih dahulu untuk melihat sisa kuota teman.</p>}
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -138,28 +162,63 @@ function GuestsInput({ field, value, disabled }: { field: FormField; value?: unk
           </label>
         ))}
       </div>
-      {blocked && <p className="text-xs font-medium text-[#c20048]">Kuota teman untuk jadwal ini sudah habis.</p>}
+      {blocked && <p className="text-xs font-medium text-[#c20048]">Kuota teman untuk semua jadwal sudah habis.</p>}
       {bring && !blocked && (
         <div className="space-y-3">
-          {Array.from({ length: Math.min(count, allowed) }, (_, i) => (
-            <div key={i} className="grid gap-3 rounded-2xl border border-line bg-cream/60 p-4 sm:grid-cols-2">
-              {allowed > 1 && <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-2">Teman {i + 1}</p>}
-              {subs.map((sf) => (
-                <div key={sf.key}>
-                  <Label required={sf.required}>{sf.label}</Label>
-                  <Input
-                    name={`${name}_${sf.key}`}
-                    defaultValue={initial[i]?.[sf.key]}
-                    placeholder={sf.placeholder}
-                    type={sf.type === "phone" ? "tel" : "text"}
-                    inputMode={sf.type === "phone" ? "tel" : sf.type === "number" ? "decimal" : undefined}
-                  />
-                </div>
-              ))}
-            </div>
-          ))}
+          {Array.from({ length: Math.min(count, allowed) }, (_, i) => {
+            const rowSlot = rowSlots[i] ?? defaultSlot;
+            return (
+              <div key={i} className="grid gap-3 rounded-2xl border border-line bg-cream/60 p-4 sm:grid-cols-2">
+                {allowed > 1 && <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground sm:col-span-2">Teman {i + 1}</p>}
+                {slots.length > 1 ? (
+                  <div className="sm:col-span-2">
+                    <Label required>Ikut jadwal</Label>
+                    <Select value={rowSlot} onValueChange={(v) => setRowSlot(i, v)}>
+                      <SelectTrigger className="h-auto w-full rounded-xl border-line bg-white px-3.5 py-2.5 text-sm shadow-none [&>svg]:size-5 [&>svg]:text-brand-600">
+                        <SelectValue placeholder="— Pilih jadwal —" />
+                      </SelectTrigger>
+                      <SelectContent position="popper" className="rounded-xl border-line p-1 shadow-lg ring-brand-100">
+                        {slots.map((s) => {
+                          const rem = remainingGuests(s.id);
+                          const full = rem <= 0 && rowSlot !== s.id;
+                          return (
+                            <SelectItem key={s.id} value={s.id} disabled={full} className="cursor-pointer rounded-lg py-2.5 pl-3 text-sm focus:bg-brand-50 focus:text-brand-800">
+                              {s.label}
+                              {s.guest_quota > 0 ? ` — ${full ? "penuh" : `sisa ${rem}`}` : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <input type="hidden" name={`${name}_${GUEST_SLOT_KEY}`} value={rowSlot} />
+                  </div>
+                ) : (
+                  <input type="hidden" name={`${name}_${GUEST_SLOT_KEY}`} value={rowSlot} />
+                )}
+                {subs.map((sf) => (
+                  <div key={sf.key}>
+                    <Label required={sf.required}>{sf.label}</Label>
+                    <Input
+                      name={`${name}_${sf.key}`}
+                      defaultValue={initial[i]?.[sf.key]}
+                      placeholder={sf.placeholder}
+                      type={sf.type === "phone" ? "tel" : "text"}
+                      inputMode={sf.type === "phone" ? "tel" : sf.type === "number" ? "decimal" : undefined}
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
           {count < allowed && (
-            <Button type="button" variant="secondary" onClick={() => setCount((c) => c + 1)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setCount((c) => c + 1);
+                setRowSlots((prev) => [...prev, defaultSlot]);
+              }}
+            >
               + Tambah teman
             </Button>
           )}

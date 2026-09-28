@@ -43,6 +43,8 @@ export interface Submission {
   status: "active" | "cancelled";
   slot: string | null;
   guest_count: number;
+  /** Jumlah teman per jadwal (jadwal teman bisa beda dari `slot` pendaftar). */
+  guest_slots: Record<string, number>;
   /** Total bayar saat mendaftar (Rupiah); null jika sesi tidak berbayar. */
   amount: number | null;
   payment_status: PaymentStatus;

@@ -43,16 +43,20 @@ export function normalizeCode(input: string) {
 export async function slotUsage(sessionId: string): Promise<SlotUsage> {
   const { data } = await createAdminClient()
     .from("submissions")
-    .select("slot, guest_count")
+    .select("slot, guest_slots")
     .eq("session_id", sessionId)
-    .eq("status", "active")
-    .not("slot", "is", null);
+    .eq("status", "active");
   const out: SlotUsage = {};
   for (const r of data ?? []) {
-    const k = r.slot as string;
-    out[k] ??= { used: 0, guests: 0 };
-    out[k].used += 1;
-    out[k].guests += Number(r.guest_count) || 0;
+    if (r.slot) {
+      const k = r.slot as string;
+      out[k] ??= { used: 0, guests: 0 };
+      out[k].used += 1;
+    }
+    for (const [k, v] of Object.entries((r.guest_slots ?? {}) as Record<string, number>)) {
+      out[k] ??= { used: 0, guests: 0 };
+      out[k].guests += Number(v) || 0;
+    }
   }
   return out;
 }

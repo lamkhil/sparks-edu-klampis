@@ -36,6 +36,9 @@ export interface GuestSubField {
 
 export type Guest = Record<string, string>;
 
+/** Key jawaban teman yang menyimpan jadwal pilihan teman itu (bisa beda dari jadwal pendaftar). */
+export const GUEST_SLOT_KEY = "__jadwal";
+
 /** Kolom bawaan jika field "Bawa teman" belum mengatur kolomnya sendiri. */
 export const DEFAULT_GUEST_FIELDS: GuestSubField[] = [
   { key: "nama", label: "Nama teman", type: "short_text", required: true },
@@ -174,6 +177,17 @@ export function matchesContact(fields: FormField[], sub: { email: string | null;
 
 export const slotField = (fields: FormField[]) => fields.find((f) => f.type === "slot");
 export const guestField = (fields: FormField[]) => fields.find((f) => f.type === "guests");
+
+/** Jumlah teman per jadwal dari jawaban "Bawa teman"; teman tanpa jadwal ikut jadwal pendaftar. */
+export function computeGuestSlots(guests: Guest[], registrantSlot: string | null): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const g of guests) {
+    const id = g[GUEST_SLOT_KEY] || registrantSlot;
+    if (!id) continue;
+    out[id] = (out[id] ?? 0) + 1;
+  }
+  return out;
+}
 export const fileFields = (fields: FormField[]) => fields.filter((f) => f.type === "file");
 
 /** Field yang tidak boleh diubah pengisi setelah submit (mempengaruhi kuota / verifikasi). */
@@ -201,10 +215,13 @@ export function readFormData(fields: FormField[], fd: FormData): Record<string, 
       }
       const subs = guestSubFields(f);
       const cols = subs.map((sf) => fd.getAll(`${name}_${sf.key}`).map((v) => String(v).trim()));
-      const rows = Math.max(0, ...cols.map((c) => c.length));
-      out[f.key] = Array.from({ length: rows }, (_, i) => Object.fromEntries(subs.map((sf, j) => [sf.key, cols[j][i] ?? ""]))).filter((g) =>
-        Object.values(g).some(Boolean),
-      );
+      const slotCol = fd.getAll(`${name}_${GUEST_SLOT_KEY}`).map((v) => String(v).trim());
+      const rows = Math.max(0, ...cols.map((c) => c.length), slotCol.length);
+      out[f.key] = Array.from({ length: rows }, (_, i) => {
+        const row: Guest = Object.fromEntries(subs.map((sf, j) => [sf.key, cols[j][i] ?? ""]));
+        if (slotCol[i]) row[GUEST_SLOT_KEY] = slotCol[i];
+        return row;
+      }).filter((g) => Object.values(g).some(Boolean));
     } else out[f.key] = String(fd.get(name) ?? "").trim();
   }
   return out;
@@ -260,6 +277,8 @@ export function answersSchema(fields: FormField[], filePrefix?: string) {
           if (sf.required) c = c.refine((v) => v !== "", `${sf.label} wajib diisi`);
           obj[sf.key] = c;
         }
+        const slotIds = (slotField(fields)?.slots ?? []).map((x) => x.id);
+        if (slotIds.length) obj[GUEST_SLOT_KEY] = z.string().refine((v) => slotIds.includes(v), "Pilih jadwal teman");
         s = z
           .array(z.object(obj))
           .max(max, `Maksimal ${max} teman per pendaftar`)
@@ -302,19 +321,33 @@ export function formatAnswer(value: unknown): string {
   return String(value);
 }
 
-export function formatGuests(field: FormField, value: unknown) {
+export function formatGuests(field: FormField, value: unknown, slots?: Slot[]) {
   if (!Array.isArray(value) || value.length === 0) return "Tidak";
   const subs = guestSubFields(field);
-  return (value as Guest[]).map((g) => subs.map((sf) => `${sf.label}: ${g[sf.key] || "-"}`).join(", ")).join(" | ");
+  return (value as Guest[])
+    .map((g) => {
+      const parts = subs.map((sf) => `${sf.label}: ${g[sf.key] || "-"}`);
+      const slotId = g[GUEST_SLOT_KEY];
+      if (slotId && slots?.length) parts.push(`Jadwal: ${slots.find((s) => s.id === slotId)?.label ?? slotId}`);
+      return parts.join(", ");
+    })
+    .join(" | ");
+}
+
+/** Jadwal teman → hitung berapa teman per jadwal, mis. "Sesi 1: 2, Sesi 2: 1". */
+export function guestSlotsBreakdown(guestSlots: Record<string, number> | null | undefined, slots?: Slot[]) {
+  const entries = Object.entries(guestSlots ?? {}).filter(([, v]) => v > 0);
+  if (!entries.length) return "";
+  return entries.map(([id, v]) => `${slots?.find((s) => s.id === id)?.label ?? id}: ${v}`).join(", ");
 }
 
 /** Format jawaban sesuai tipe field (label jadwal, daftar teman, dll). */
-export function formatFieldAnswer(field: FormField, value: unknown): string {
+export function formatFieldAnswer(field: FormField, value: unknown, slots?: Slot[]): string {
   switch (field.type) {
     case "slot":
       return field.slots?.find((s) => s.id === value)?.label ?? formatAnswer(value);
     case "guests":
-      return formatGuests(field, value);
+      return formatGuests(field, value, slots);
     case "file":
       return value ? "Terlampir" : "";
     default:

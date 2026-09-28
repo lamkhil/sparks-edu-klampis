@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { FormState } from "@/components/dynamic-form";
 import { getSessionBySlug } from "@/lib/data";
-import { emailKey, fileFields, guestField, readFormData, slotField, validateAnswers } from "@/lib/form-schema";
+import { computeGuestSlots, emailKey, fileFields, guestField, readFormData, slotField, validateAnswers } from "@/lib/form-schema";
+import type { Guest } from "@/lib/form-schema";
 import { sendConfirmation } from "@/lib/mailer";
 import { computeAmount } from "@/lib/promo";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -52,7 +53,9 @@ export async function submitForm(slug: string, prev: FormState, fd: FormData): P
   const sf = slotField(session.fields);
   const gf = guestField(session.fields);
   const slot = sf ? String(v.data[sf.key]) : null;
-  const guests = gf ? (v.data[gf.key] as unknown[]).length : 0;
+  const guestList = gf ? (v.data[gf.key] as Guest[]) : [];
+  const guests = guestList.length;
+  const guestSlots = computeGuestSlots(guestList, slot);
   const trackPayment = session.track_payment || fileFields(session.fields).length > 0;
 
   const db = createAdminClient();
@@ -63,6 +66,7 @@ export async function submitForm(slug: string, prev: FormState, fd: FormData): P
     p_slot: slot,
     p_guests: guests,
     p_payment_status: trackPayment ? "pending" : "none",
+    p_guest_slots: guestSlots,
   });
   if (error) {
     const code = Object.keys(ERRORS).find((k) => error.message.includes(k));

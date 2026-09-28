@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { formatFieldAnswer, type FormField } from "@/lib/form-schema";
+import { formatFieldAnswer, type FormField, type Slot } from "@/lib/form-schema";
 import { fmtDate } from "@/lib/format";
 import type { Submission } from "@/lib/types";
 import { deleteSubmission, resendEmail, setPaymentStatus, setSubmissionStatus } from "../../actions";
@@ -27,11 +27,13 @@ type Confirm = "cancel" | "delete" | null;
 export function RowActions({
   sub,
   fields,
+  slots,
   hasPayment,
   proofs = [],
 }: {
   sub: Submission;
   fields: FormField[];
+  slots?: Slot[];
   hasPayment?: boolean;
   proofs?: { label: string; url: string | null }[];
 }) {
@@ -122,7 +124,7 @@ export function RowActions({
             {fields.map((f) => (
               <div key={f.id} className="grid grid-cols-3 gap-3 px-3 py-2.5">
                 <dt className="text-muted-foreground">{f.label}</dt>
-                <dd className="col-span-2 whitespace-pre-line break-words">{formatFieldAnswer(f, sub.answers[f.key]) || "—"}</dd>
+                <dd className="col-span-2 whitespace-pre-line break-words">{formatFieldAnswer(f, sub.answers[f.key], slots) || "—"}</dd>
               </div>
             ))}
           </dl>

@@ -140,12 +140,21 @@ export async function setSubmissionStatus(id: string, status: "active" | "cancel
   if (status === "active" && sub.status !== "active") {
     const s = await getSessionById(sub.session_id);
     if (s && (await countActive(s.id)) >= s.quota) return { ok: false, error: "Kuota penuh, naikkan kuota dulu untuk memulihkan." };
-    const sl = s && sub.slot ? slotField(s.fields)?.slots?.find((x) => x.id === sub.slot) : undefined;
+    const sf = s ? slotField(s.fields) : undefined;
+    const sl = s && sub.slot ? sf?.slots?.find((x) => x.id === sub.slot) : undefined;
     if (s && sl) {
-      const u = (await slotUsage(s.id))[sl.id] ?? { used: 0, guests: 0 };
+      const usage = await slotUsage(s.id);
+      const u = usage[sl.id] ?? { used: 0, guests: 0 };
       if (u.used >= sl.quota) return { ok: false, error: `Jadwal "${sl.label}" sudah penuh.` };
-      if (guestField(s.fields) && sub.guest_count > 0 && u.guests + sub.guest_count > sl.guest_quota)
-        return { ok: false, error: `Kuota teman di "${sl.label}" tidak cukup untuk memulihkan pendaftaran ini.` };
+      if (guestField(s.fields) && sub.guest_slots) {
+        for (const [gid, n] of Object.entries(sub.guest_slots)) {
+          if (!n) continue;
+          const gsl = sf?.slots?.find((x) => x.id === gid);
+          const gu = usage[gid] ?? { used: 0, guests: 0 };
+          if (gsl && gu.guests + n > gsl.guest_quota)
+            return { ok: false, error: `Kuota teman di "${gsl.label}" tidak cukup untuk memulihkan pendaftaran ini.` };
+        }
+      }
     }
   }
   await createAdminClient().from("submissions").update({ status }).eq("id", id);
